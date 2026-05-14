@@ -48,7 +48,7 @@ const BigValueCard = ({
               align="end"
               collisionPadding={{ left: 16, right: 20, top: 8, bottom: 8 }}
               avoidCollisions
-              className="bg-slate-900 text-white border-slate-900 shadow-lg max-w-[280px] p-3"
+              className="bg-slate-900 text-white p-3 text-xs shadow-xl border-none max-w-[280px]"
             >
               {infoTooltip === "ponderado" ? (
                 <PonderadoTooltipContent />
