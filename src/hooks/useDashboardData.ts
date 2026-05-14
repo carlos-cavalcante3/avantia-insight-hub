@@ -551,7 +551,7 @@ export const useTopClientesYTD = (limit = 10, pipelineScope: PipelineScope = "av
  * ============================================================ */
 
 export const usePipelineClientesUltimaMov = (
-  limit = 60,
+  limit = 5000,
   pipelineScope: PipelineScope = "avantia"
 ) =>
   useQuery({
@@ -784,19 +784,29 @@ export const useVendasPorAno = (pipelineScope: PipelineScope = "avantia") =>
 
 export const useMotivosPerda = (pipelineScope: PipelineScope = "avantia") =>
   useQuery({
-    queryKey: ["gold", "motivos_perda_v4", pipelineScope],
+    queryKey: ["gold", "motivos_perda_v5", pipelineScope],
     queryFn: async (): Promise<MotivoPerda[]> =>
       guard(async () => {
-        const { data, error } = await applyPipelineScope(
-          supabaseGold
-            .from("mv_motivos_perda")
-            .select("pipeline_nome,motivo,qtd_negocios,valor_perdido")
-            .order("qtd_negocios", { ascending: false }),
-          pipelineScope
-        );
+        // Defensive: fetch the entire view and filter in memory to tolerate
+        // accent / parenthesis / casing drift between the front-end label
+        // ("Avantia (Geral)") and the values stored in the database.
+        const { data, error } = await supabaseGold
+          .from("mv_motivos_perda")
+          .select("pipeline_nome,motivo,qtd_negocios,valor_perdido")
+          .order("qtd_negocios", { ascending: false })
+          .limit(5000);
         if (error) throw error;
+        const allRows = (data ?? []) as Record<string, unknown>[];
+        const filtered = allRows.filter((r) => {
+          const pipe = normalize(String(r.pipeline_nome ?? ""));
+          if (pipelineScope === "setor_privado") return pipe.includes("privado");
+          if (pipelineScope === "setor_publico")
+            return pipe.includes("publico") || pipe.includes("public") || pipe.includes("eletric");
+          // avantia / consolidado: aceita qualquer linha (geral, avantia, ou pipelines individuais).
+          return true;
+        });
         const agg = new Map<string, { qtd: number; valor: number }>();
-        for (const r of (data ?? []) as Record<string, unknown>[]) {
+        for (const r of filtered) {
           const motivo = String(r.motivo ?? "Não Informado");
           const cur = agg.get(motivo) ?? { qtd: 0, valor: 0 };
           cur.qtd += Number(r.qtd_negocios ?? 0);

@@ -48,7 +48,7 @@ const BigValueCard = ({
               align="end"
               collisionPadding={{ left: 16, right: 20, top: 8, bottom: 8 }}
               avoidCollisions
-              className="bg-slate-900 text-white border-slate-900 shadow-lg max-w-[280px] p-3"
+              className="bg-slate-900 text-white p-3 text-xs shadow-xl border-none max-w-[280px]"
             >
               {infoTooltip === "ponderado" ? (
                 <PonderadoTooltipContent />
@@ -96,10 +96,10 @@ export const PipelineTab = () => {
   const funilPublicoEletrico = usePipelineFunil(scopePublicoEletrico);
   const funilAudioVideo = usePipelineFunil(scopeAudioVideo, "Áudio e Vídeo");
 
-  const clientesAvantia = usePipelineClientesUltimaMov(60, scopeAvantia);
-  const clientesPrivado = usePipelineClientesUltimaMov(60, scopePrivado);
-  const clientesPublicoEletrico = usePipelineClientesUltimaMov(60, scopePublicoEletrico);
-  const clientesAudioVideo = usePipelineClientesUltimaMov(60, scopeAudioVideo);
+  const clientesAvantia = usePipelineClientesUltimaMov(5000, scopeAvantia);
+  const clientesPrivado = usePipelineClientesUltimaMov(5000, scopePrivado);
+  const clientesPublicoEletrico = usePipelineClientesUltimaMov(5000, scopePublicoEletrico);
+  const clientesAudioVideo = usePipelineClientesUltimaMov(5000, scopeAudioVideo);
   const totalFunilAvantiaM = funilAvantia.data?.headerMillions ?? 0;
   const totalFunilPrivadoM = funilPrivado.data?.headerMillions ?? 0;
   const totalFunilPublicoM = funilPublicoEletrico.data?.headerMillions ?? 0;
