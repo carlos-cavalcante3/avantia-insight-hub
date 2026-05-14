@@ -134,8 +134,8 @@ export const PipelineFaseChart = ({
                           <TooltipContent
                             side="top"
                             avoidCollisions
-                            collisionPadding={{ left: 10, right: 10 }}
-                            className="bg-slate-900 text-white border-slate-900 max-w-[280px] text-xs leading-snug"
+                            collisionPadding={{ left: 16, right: 16 }}
+                            className="bg-slate-900 text-white p-3 text-xs shadow-xl border-none max-w-[280px] leading-snug"
                           >
                             {ON_HOLD_PRIVADO_TOOLTIP}
                           </TooltipContent>
