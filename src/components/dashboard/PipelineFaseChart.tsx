@@ -108,15 +108,15 @@ export const PipelineFaseChart = ({
                   compliancePrivadoOnHold && normalize(etapa.nome).includes("on-hold");
                 const bg = isPrivadoOnHold ? "#ef4444" : etapa.cor;
                 return (
-                  <div
+                <div
                     key={etapa.nome}
-                    className="flex-1 flex flex-col justify-center items-center w-full px-2"
-                    style={{ backgroundColor: bg, minHeight: "60px" }}
+                    className="flex-1 flex flex-col flex-wrap justify-center items-center w-full px-2 py-2"
+                    style={{ backgroundColor: bg, minHeight: "72px" }}
                   >
-                    <span className="text-base md:text-lg font-bold text-white w-full text-center leading-tight">
+                    <span className="text-base md:text-lg font-bold text-white w-full text-center leading-tight break-words">
                       {formatCurrency(etapa.valor_total || 0)}
                     </span>
-                    <div className="mt-0.5 flex items-center justify-center gap-1.5 w-full text-xs text-white/95 leading-tight text-center">
+                    <div className="mt-1 flex flex-wrap items-center justify-center gap-1.5 w-full text-xs text-white/95 leading-tight text-center">
                       <span className="whitespace-normal break-words">
                         {etapa.total_negocios || 0} negócios · {etapa.nome}
                       </span>
