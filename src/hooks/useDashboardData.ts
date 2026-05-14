@@ -551,7 +551,7 @@ export const useTopClientesYTD = (limit = 10, pipelineScope: PipelineScope = "av
  * ============================================================ */
 
 export const usePipelineClientesUltimaMov = (
-  limit = 60,
+  limit = 5000,
   pipelineScope: PipelineScope = "avantia"
 ) =>
   useQuery({
