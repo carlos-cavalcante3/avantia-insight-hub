@@ -45,7 +45,7 @@ export const MotivosPerdaChart = ({ data, isLoading, error }: Props) => {
         ) : rows.length === 0 ? (
           <ErrorState message="Sem dados de perda." />
         ) : (
-          <div className="flex justify-start items-start w-full overflow-x-auto">
+          <div className="flex h-full min-h-0 w-full items-start justify-start overflow-x-auto">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={rows}

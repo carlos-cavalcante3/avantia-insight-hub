@@ -202,6 +202,20 @@ const normalize = (value: string) =>
 const pipelineNomeNorm = (row: { pipeline_nome?: string | null }) =>
   normalize(String(row?.pipeline_nome ?? ""));
 
+const toNumber = (value: unknown): number => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const normalized = trimmed.includes(",")
+      ? trimmed.replace(/\./g, "").replace(",", ".")
+      : trimmed;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 /** Exclui o financeiro da etapa On-Hold do pipeline Privado no total do cabeçalho (Privado e Avantia Geral). */
 const excludeOnHoldPrivadoFromHeaderValor = (
   r: RowFunil,
@@ -784,7 +798,7 @@ export const useVendasPorAno = (pipelineScope: PipelineScope = "avantia") =>
 
 export const useMotivosPerda = (pipelineScope: PipelineScope = "avantia") =>
   useQuery({
-    queryKey: ["gold", "motivos_perda_v5", pipelineScope],
+    queryKey: ["gold", "motivos_perda_v6", pipelineScope],
     queryFn: async (): Promise<MotivoPerda[]> =>
       guard(async () => {
         // Defensive: fetch the entire view and filter in memory to tolerate
@@ -792,8 +806,7 @@ export const useMotivosPerda = (pipelineScope: PipelineScope = "avantia") =>
         // ("Avantia (Geral)") and the values stored in the database.
         const { data, error } = await supabaseGold
           .from("mv_motivos_perda")
-          .select("pipeline_nome,motivo,qtd_negocios,valor_perdido")
-          .order("qtd_negocios", { ascending: false })
+          .select("*")
           .limit(5000);
         if (error) throw error;
         const allRows = (data ?? []) as Record<string, unknown>[];
@@ -807,10 +820,10 @@ export const useMotivosPerda = (pipelineScope: PipelineScope = "avantia") =>
         });
         const agg = new Map<string, { qtd: number; valor: number }>();
         for (const r of filtered) {
-          const motivo = String(r.motivo ?? "Não Informado");
+          const motivo = String(r.motivo ?? r.motivo_perda ?? r.reason ?? "Não Informado").trim() || "Não Informado";
           const cur = agg.get(motivo) ?? { qtd: 0, valor: 0 };
-          cur.qtd += Number(r.qtd_negocios ?? 0);
-          cur.valor += Number(r.valor_perdido ?? 0);
+          cur.qtd += toNumber(r.qtd_negocios ?? r.total_negocios ?? r.total_perdidos ?? r.qtd ?? 0);
+          cur.valor += toNumber(r.valor_perdido ?? r.valor_total_perdido ?? r.valor_total ?? r.valor ?? 0);
           agg.set(motivo, cur);
         }
         return Array.from(agg.entries())
@@ -822,6 +835,7 @@ export const useMotivosPerda = (pipelineScope: PipelineScope = "avantia") =>
             total_perdidos: v.qtd,
             label: motivo,
           }))
+          .filter((row) => row.qtd_negocios > 0 || row.valor_perdido > 0)
           .sort((a, b) => b.qtd_negocios - a.qtd_negocios);
       }),
     staleTime: 5 * 60 * 1000,
