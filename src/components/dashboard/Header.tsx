@@ -18,9 +18,16 @@ interface HeaderProps {
   onSectorChange: (value: Sector) => void;
   /** Quando definido, substitui o seletor de Setor (ex: seletor de Gestor na Página 4). */
   selectorOverride?: ReactNode;
+  hideSectorSelector?: boolean;
 }
 
-export const Header = ({ onMenuClick, sector, onSectorChange, selectorOverride }: HeaderProps) => {
+export const Header = ({
+  onMenuClick,
+  sector,
+  onSectorChange,
+  selectorOverride,
+  hideSectorSelector = false,
+}: HeaderProps) => {
   const navigate = useNavigate();
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -55,24 +62,26 @@ export const Header = ({ onMenuClick, sector, onSectorChange, selectorOverride }
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="w-44 hidden sm:block">
-            {selectorOverride ?? (
-              <Select
-                value={sector}
-                onValueChange={(value) => onSectorChange(value as Sector)}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="avantia">{SECTOR_LABEL.avantia}</SelectItem>
-                  <SelectItem value="publico">{SECTOR_LABEL.publico}</SelectItem>
-                  <SelectItem value="privado">{SECTOR_LABEL.privado}</SelectItem>
-                  <SelectItem value="audio_video">{SECTOR_LABEL.audio_video}</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+          {!hideSectorSelector && (
+            <div className="w-44 hidden sm:block">
+              {selectorOverride ?? (
+                <Select
+                  value={sector}
+                  onValueChange={(value) => onSectorChange(value as Sector)}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="avantia">{SECTOR_LABEL.avantia}</SelectItem>
+                    <SelectItem value="publico">{SECTOR_LABEL.publico}</SelectItem>
+                    <SelectItem value="privado">{SECTOR_LABEL.privado}</SelectItem>
+                    <SelectItem value="audio_video">{SECTOR_LABEL.audio_video}</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
           <div className="hidden md:flex items-center gap-2 px-3 h-9 rounded-md bg-muted border border-border text-sm text-muted-foreground">
             <Calendar className="h-4 w-4" />
             <span>YTD · 2026</span>

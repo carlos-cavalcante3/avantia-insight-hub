@@ -100,6 +100,34 @@ const diasDesde = (iso: string | null): number | null => {
   return Math.floor((Date.now() - d.getTime()) / 86_400_000);
 };
 
+const wrapAxisLabel = (value: string, maxLineLength = 20, maxLines = 2) => {
+  const words = value.trim().split(/\s+/);
+  const lines: string[] = [];
+
+  for (const word of words) {
+    if (!lines.length) {
+      lines.push(word);
+      continue;
+    }
+    const current = lines[lines.length - 1] ?? "";
+    const next = `${current} ${word}`;
+    if (next.length <= maxLineLength) {
+      lines[lines.length - 1] = next;
+    } else if (lines.length < maxLines) {
+      lines.push(word);
+    } else {
+      break;
+    }
+  }
+
+  const normalized = lines.join(" ");
+  if (normalized.length < value.trim().length && lines.length) {
+    lines[lines.length - 1] = `${lines[lines.length - 1].slice(0, maxLineLength - 3).trimEnd()}...`;
+  }
+
+  return lines.length ? lines.slice(0, maxLines) : ["Cliente não informado"];
+};
+
 export const AnaliseGerentesTab = ({ gestor }: AnaliseGerentesTabProps) => {
   const perf = usePerformanceGestor();
   const vendasGestor = useVendasGestorPeriodo("avantia");
@@ -232,9 +260,31 @@ export const AnaliseGerentesTab = ({ gestor }: AnaliseGerentesTabProps) => {
                   <YAxis
                     type="category"
                     dataKey="empresa_nome"
-                    tick={{ fontSize: 11, fill: "#0f172a", fontWeight: 600 }}
-                    width={140}
+                    width={150}
                     interval={0}
+                    tick={({ x, y, payload }) => {
+                      const full = String(payload.value ?? "");
+                      const lines = wrapAxisLabel(full);
+                      return (
+                        <g transform={`translate(${x},${y})`}>
+                          <title>{full}</title>
+                          {lines.map((line, index) => (
+                            <text
+                              key={`${line}-${index}`}
+                              x={-8}
+                              y={(index - (lines.length - 1) / 2) * 13}
+                              dy={4}
+                              textAnchor="end"
+                              fill="#0f172a"
+                              fontSize={11}
+                              fontWeight={600}
+                            >
+                              {line}
+                            </text>
+                          ))}
+                        </g>
+                      );
+                    }}
                   />
                   <RechartsTooltip
                     formatter={(v: number) => formatBRL(Number(v))}

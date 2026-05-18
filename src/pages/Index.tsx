@@ -83,6 +83,7 @@ const Index = () => {
           sector={sector}
           onSectorChange={setSector}
           selectorOverride={headerOverride}
+          hideSectorSelector={tab === "gerentes"}
         />
 
         <main className="px-3 sm:px-5 py-4 space-y-4 max-w-[1600px] mx-auto">
@@ -117,17 +118,17 @@ const Index = () => {
 
           {tab === "alertas" && (
             <>
+              <MotivosPerdaChart
+                data={motivos.data}
+                isLoading={motivos.isLoading}
+                error={motivos.error as Error | null}
+              />
               <EstagnadosTable
                 data={estagnados.data}
                 isLoading={estagnados.isLoading}
                 error={estagnados.error as Error | null}
                 maxRows={50}
                 title="Negócios Estagnados (> 15 dias)"
-              />
-              <MotivosPerdaChart
-                data={motivos.data}
-                isLoading={motivos.isLoading}
-                error={motivos.error as Error | null}
               />
             </>
           )}

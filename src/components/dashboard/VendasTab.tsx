@@ -212,6 +212,7 @@ const MetaSectorThermo = ({
   const pct = meta > 0 ? Math.min(Math.max(atingido / meta, 0), 1) : 0;
   const falta = Math.max(meta - atingido, 0);
   const widthPct = `${(pct * 100).toFixed(1)}%`;
+  const pctLabel = formatPercent(pct * 100);
   return (
     <div className="rounded-md border border-border/60 bg-card p-3 flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-2">
@@ -223,6 +224,9 @@ const MetaSectorThermo = ({
           className="absolute inset-y-0 left-0 bg-gradient-to-r from-brand-blue/70 to-brand-blue rounded-full transition-all duration-700"
           style={{ width: widthPct }}
         />
+        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-semibold leading-none text-slate-600/80 tabular-nums">
+          {pctLabel}
+        </span>
       </div>
       <p className="text-[11px] text-muted-foreground">
         Falta <strong className="text-foreground">{formatBRL(falta)}</strong> para atingir a meta
@@ -295,6 +299,34 @@ interface ValuePoint {
   valor: number;
 }
 
+const wrapAxisLabel = (value: string, maxLineLength = 24, maxLines = 2) => {
+  const words = value.trim().split(/\s+/);
+  const lines: string[] = [];
+
+  for (const word of words) {
+    if (!lines.length) {
+      lines.push(word);
+      continue;
+    }
+    const current = lines[lines.length - 1] ?? "";
+    const next = current ? `${current} ${word}` : word;
+    if (next.length <= maxLineLength) {
+      lines[lines.length - 1] = next;
+    } else if (lines.length < maxLines) {
+      lines.push(word);
+    } else {
+      break;
+    }
+  }
+
+  const normalized = lines.join(" ");
+  if (normalized.length < value.trim().length && lines.length) {
+    lines[lines.length - 1] = `${lines[lines.length - 1].slice(0, maxLineLength - 3).trimEnd()}...`;
+  }
+
+  return lines.length ? lines.slice(0, maxLines) : ["-"];
+};
+
 const ValueBarChart = ({
   data,
   isLoading,
@@ -311,24 +343,47 @@ const ValueBarChart = ({
         {emptyLabel}
       </div>
     );
+  const chartHeight = Math.max(420, data.length * 48 + 64);
   return (
-    <div className="min-h-[400px] h-[450px] w-full">
-      <div className="w-full overflow-x-auto flex justify-start items-start">
-        <div className="w-full min-w-[600px] text-left">
-          <ResponsiveContainer width="100%" height={450}>
+    <div className="w-full" style={{ height: chartHeight }}>
+      <div className="flex h-full w-full items-start justify-start overflow-x-auto">
+        <div className="h-full w-full min-w-[560px] max-w-[820px] text-left">
+          <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={data}
               layout="vertical"
-              margin={{ top: 10, right: 140, left: 20, bottom: 10 }}
+              margin={{ top: 10, right: 132, left: 0, bottom: 10 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
               <XAxis type="number" hide />
               <YAxis
                 type="category"
                 dataKey="label"
-                tick={{ fontSize: 12, fill: "#0f172a", fontWeight: 600 }}
-                width={220}
+                width={210}
                 interval={0}
+                tick={({ x, y, payload }) => {
+                  const full = String(payload.value ?? "");
+                  const lines = wrapAxisLabel(full);
+                  return (
+                    <g transform={`translate(${x},${y})`}>
+                      <title>{full}</title>
+                      {lines.map((line, index) => (
+                        <text
+                          key={`${line}-${index}`}
+                          x={-8}
+                          y={(index - (lines.length - 1) / 2) * 13}
+                          dy={4}
+                          textAnchor="end"
+                          fill="#0f172a"
+                          fontSize={11}
+                          fontWeight={600}
+                        >
+                          {line}
+                        </text>
+                      ))}
+                    </g>
+                  );
+                }}
               />
               <RechartsTooltip
                 formatter={(v: number) => formatBRL(Number(v))}
@@ -575,7 +630,7 @@ export const VendasTab = ({ sector }: VendasTabProps) => {
       {/* Bloco 5 - Metas Anual */}
       <MetasBanner
         title="Metas Anuais (YTD)"
-        subtitle="Atingimento por setor · termômetros mostram quanto falta"
+        subtitle="Valor atingido por setor"
         metas={METAS_ANUAIS}
         atingidos={atingidosYtd}
         isLoading={kpisPorSetor.isLoading}

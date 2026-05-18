@@ -375,17 +375,17 @@ export const useVendasGestorPeriodo = (sector: Sector = "avantia") =>
 
 /* --------------------------- Metas ----------------------------- */
 
-/** Metas anuais por setor (provisórias, ajustar quando definidas pelo negócio). */
+/** Metas anuais por setor. Metas mensais derivam proporcionalmente da meta anual / 12. */
 export const METAS_ANUAIS: Record<Sector, number> = {
-  avantia: 80_000_000,
-  publico: 30_000_000,
-  privado: 40_000_000,
-  audio_video: 10_000_000,
+  avantia: 130_000_000,
+  publico: 55_000_000,
+  privado: 60_000_000,
+  audio_video: 15_000_000,
 };
 
 export const METAS_MENSAIS: Record<Sector, number> = {
-  avantia: 6_666_667,
-  publico: 2_500_000,
-  privado: 3_333_333,
-  audio_video: 833_333,
+  avantia: METAS_ANUAIS.avantia / 12,
+  publico: METAS_ANUAIS.publico / 12,
+  privado: METAS_ANUAIS.privado / 12,
+  audio_video: METAS_ANUAIS.audio_video / 12,
 };

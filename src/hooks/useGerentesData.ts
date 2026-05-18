@@ -138,6 +138,19 @@ const normalizeNome = (s: string) =>
     .toLowerCase()
     .trim();
 
+const textFromRow = (
+  row: Record<string, unknown>,
+  keys: string[],
+  fallback = "Cliente não informado"
+): string => {
+  for (const key of keys) {
+    const value = row[key];
+    const text = String(value ?? "").trim();
+    if (text && text !== "—" && text !== "-") return text;
+  }
+  return fallback;
+};
+
 /** Pipeline aberto por gestor — `gold.mv_pipeline_aberto_gestor` (sem silver). */
 export const usePipelineAbertoPorGestor = (gestorNome: string | null) =>
   useQuery({
@@ -184,7 +197,16 @@ export const useTopClientesGestor = (gestorNome: string | null) =>
         return ((data ?? []) as Record<string, unknown>[])
           .map((r) => ({
             gestor_nome: String(r?.gestor_nome ?? gestorNome),
-            empresa_nome: String(r?.empresa_nome ?? "—").trim() || "—",
+            empresa_nome: textFromRow(r, [
+              "empresa_nome",
+              "cliente_nome",
+              "conta_nome",
+              "nome_empresa",
+              "empresa",
+              "cliente",
+              "razao_social",
+              "razao_social_empresa",
+            ]),
             valor_ytd: Number(r?.valor_ytd ?? 0),
           }))
           .sort((a, b) => b.valor_ytd - a.valor_ytd);
@@ -262,18 +284,43 @@ export const useCarteiraClientes = (gestorNome: string | null) =>
           .select("*")
           .eq("gestor_nome", gestorNome);
         if (error) throw error;
-        return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
-          cliente_nome: String(r?.cliente_nome ?? "—").trim() || "—",
-          conta_nome: String(r?.conta_nome ?? "—").trim() || "—",
-          oportunidades_2025: Number(r?.oportunidades_2025 ?? 0),
-          propostas_2025: Number(r?.propostas_2025 ?? 0),
-          oportunidades_atuais: Number(r?.oportunidades_atuais ?? 0),
-          propostas_atuais: Number(r?.propostas_atuais ?? 0),
-          valor_pipeline: Number(r?.valor_pipeline ?? 0),
-          ultima_visita: (r?.ultima_visita as string | null) ?? null,
-          contatos_cadastrados: Number(r?.contatos_cadastrados ?? 0),
-          ultima_movimentacao: (r?.ultima_movimentacao as string | null) ?? null,
-        }));
+        return ((data ?? []) as Record<string, unknown>[]).map((r) => {
+          const cliente = textFromRow(r, [
+            "cliente_nome",
+            "empresa_nome",
+            "conta_nome",
+            "nome_empresa",
+            "empresa",
+            "cliente",
+            "razao_social",
+            "razao_social_empresa",
+          ]);
+          const conta = textFromRow(
+            r,
+            [
+              "conta_nome",
+              "empresa_nome",
+              "cliente_nome",
+              "nome_conta",
+              "empresa",
+              "cliente",
+              "razao_social",
+            ],
+            cliente
+          );
+          return {
+            cliente_nome: cliente,
+            conta_nome: conta,
+            oportunidades_2025: Number(r?.oportunidades_2025 ?? 0),
+            propostas_2025: Number(r?.propostas_2025 ?? 0),
+            oportunidades_atuais: Number(r?.oportunidades_atuais ?? 0),
+            propostas_atuais: Number(r?.propostas_atuais ?? 0),
+            valor_pipeline: Number(r?.valor_pipeline ?? 0),
+            ultima_visita: (r?.ultima_visita as string | null) ?? null,
+            contatos_cadastrados: Number(r?.contatos_cadastrados ?? 0),
+            ultima_movimentacao: (r?.ultima_movimentacao as string | null) ?? null,
+          };
+        });
       }),
     staleTime: 5 * 60 * 1000,
   });
