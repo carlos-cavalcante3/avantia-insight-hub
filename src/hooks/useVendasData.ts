@@ -60,66 +60,57 @@ export interface KpisAggregated {
   win_rate_mtd_ano_anterior: number | null;
 }
 
-/** Peso para média ponderada de win rate: quantidade de propostas YTD (sem fallback em ganhos). */
-const pesoPropostasYtd = (r: Record<string, unknown>) =>
-  Math.max(0, Number(r.qtd_propostas_ytd ?? r.total_propostas_ytd ?? 0));
+/** Quantidade de oportunidades geradas usada no calculo da taxa de conversao comercial. */
+interface OportunidadesPeriodo {
+  ytd: number;
+  mtd: number;
+}
 
-const pesoPropostasMtd = (r: Record<string, unknown>) =>
-  Math.max(0, Number(r.qtd_propostas_mtd ?? r.qtd_ganhos_mtd ?? 0));
+const emptyOportunidades: OportunidadesPeriodo = { ytd: 0, mtd: 0 };
+
+const calcularTaxaConversao = (vendas: number, oportunidades: number): number =>
+  oportunidades > 0 ? (vendas / oportunidades) * 100 : 0;
+
+const sumOportunidadesPeriodo = (
+  rows: Record<string, unknown>[],
+  sector: Sector
+): OportunidadesPeriodo => {
+  const now = new Date();
+  const anoAtual = now.getFullYear();
+  const mesAtual = now.getMonth() + 1;
+  return rows.reduce<OportunidadesPeriodo>(
+    (acc, row) => {
+      const ano = Number(row.ano);
+      const mes = Number(row.mes);
+      if (ano !== anoAtual || mes < 1 || mes > mesAtual || !matchSector(String(row.pipeline_nome), sector)) {
+        return acc;
+      }
+      const qtd = Number(row.qtd_gerada ?? 0);
+      acc.ytd += qtd;
+      if (mes === mesAtual) acc.mtd += qtd;
+      return acc;
+    },
+    { ...emptyOportunidades }
+  );
+};
 
 /** Consolida várias linhas de `mv_kpis_gerais` (ex.: visão Geral = Privado + Público + Áudio). */
 const consolidateKpiSubset = (rows: Record<string, unknown>[]): Record<string, unknown> => {
   let valor_ytd = 0,
     qtd_ytd = 0,
     valor_mtd = 0,
-    qtd_mtd = 0,
-    wY = 0,
-    wrY = 0,
-    wM = 0,
-    wrM = 0,
-    wYa = 0,
-    wrYa = 0,
-    wMa = 0,
-    wrMa = 0;
+    qtd_mtd = 0;
   for (const r of rows) {
     valor_ytd += Number(r.valor_ganho_ytd ?? r.valor_total_ganho_ytd ?? 0);
     qtd_ytd += Number(r.qtd_ganhos_ytd ?? r.total_negocios_ganhos_ytd ?? 0);
     valor_mtd += Number(r.valor_ganho_mtd ?? 0);
     qtd_mtd += Number(r.qtd_ganhos_mtd ?? 0);
-    const py = pesoPropostasYtd(r);
-    wrY += Number(r.win_rate_ytd ?? 0) * py;
-    wY += py;
-    const pm = pesoPropostasMtd(r);
-    wrM += Number(r.win_rate_mtd ?? 0) * pm;
-    wM += pm;
-    const ya = r.win_rate_ytd_ano_anterior;
-    if (ya != null && !Number.isNaN(Number(ya)) && py > 0) {
-      wrYa += Number(ya) * py;
-      wYa += py;
-    }
-    const ma = r.win_rate_mtd_ano_anterior;
-    if (ma != null && !Number.isNaN(Number(ma)) && pm > 0) {
-      wrMa += Number(ma) * pm;
-      wMa += pm;
-    }
   }
   return {
     valor_ganho_ytd: valor_ytd,
     qtd_ganhos_ytd: qtd_ytd,
     valor_ganho_mtd: valor_mtd,
     qtd_ganhos_mtd: qtd_mtd,
-    win_rate_ytd: wY
-      ? wrY / wY
-      : rows.length
-        ? rows.reduce((s, r) => s + Number(r.win_rate_ytd ?? 0), 0) / rows.length
-        : 0,
-    win_rate_mtd: wM
-      ? wrM / wM
-      : rows.length
-        ? rows.reduce((s, r) => s + Number(r.win_rate_mtd ?? 0), 0) / rows.length
-        : 0,
-    win_rate_ytd_ano_anterior: wYa ? wrYa / wYa : null,
-    win_rate_mtd_ano_anterior: wMa ? wrMa / wMa : null,
   };
 };
 
@@ -145,7 +136,10 @@ const findKpiRowForSector = (
   return found ?? rows[0] ?? null;
 };
 
-const rowToKpisAggregated = (row: Record<string, unknown> | null): KpisAggregated => {
+const rowToKpisAggregated = (
+  row: Record<string, unknown> | null,
+  oportunidades: OportunidadesPeriodo = emptyOportunidades
+): KpisAggregated => {
   if (!row) {
     return {
       valor_ytd: 0,
@@ -164,33 +158,40 @@ const rowToKpisAggregated = (row: Record<string, unknown> | null): KpisAggregate
   const qtd_ytd = Number(row.qtd_ganhos_ytd ?? row.total_negocios_ganhos_ytd ?? 0);
   const valor_mtd = Number(row.valor_ganho_mtd ?? 0);
   const qtd_mtd = Number(row.qtd_ganhos_mtd ?? 0);
-  const wrYtdAnt = row.win_rate_ytd_ano_anterior;
-  const wrMtdAnt = row.win_rate_mtd_ano_anterior;
   return {
     valor_ytd,
     qtd_ytd,
     ticket_ytd: qtd_ytd ? valor_ytd / qtd_ytd : 0,
-    win_rate_ytd: Number(row.win_rate_ytd ?? 0),
+    win_rate_ytd: calcularTaxaConversao(qtd_ytd, oportunidades.ytd),
     valor_mtd,
     qtd_mtd,
     ticket_mtd: qtd_mtd ? valor_mtd / qtd_mtd : 0,
-    win_rate_mtd: Number(row.win_rate_mtd ?? 0),
-    win_rate_ytd_ano_anterior:
-      wrYtdAnt != null && !Number.isNaN(Number(wrYtdAnt)) ? Number(wrYtdAnt) : null,
-    win_rate_mtd_ano_anterior:
-      wrMtdAnt != null && !Number.isNaN(Number(wrMtdAnt)) ? Number(wrMtdAnt) : null,
+    win_rate_mtd: calcularTaxaConversao(qtd_mtd, oportunidades.mtd),
+    win_rate_ytd_ano_anterior: null,
+    win_rate_mtd_ano_anterior: null,
   };
 };
 
 export const useKpisVendas = (sector: Sector = "avantia") =>
   useQuery({
-    queryKey: ["gold", "vendas_kpis_v4", sector],
+    queryKey: ["gold", "vendas_kpis_v5", sector],
     queryFn: async (): Promise<KpisAggregated> =>
       guard(async () => {
-        const { data, error } = await supabaseGold.from("mv_kpis_gerais").select("*");
-        if (error) throw error;
-        const rows = (data ?? []) as Record<string, unknown>[];
-        return rowToKpisAggregated(findKpiRowForSector(rows, sector));
+        const [{ data: kpiData, error: kpiError }, { data: oportunidadesData, error: oportunidadesError }] =
+          await Promise.all([
+            supabaseGold.from("mv_kpis_gerais").select("*"),
+            supabaseGold
+              .from("mv_oportunidades_geradas_mes")
+              .select("pipeline_nome, ano, mes, qtd_gerada"),
+          ]);
+        if (kpiError) throw kpiError;
+        if (oportunidadesError) throw oportunidadesError;
+        const rows = (kpiData ?? []) as Record<string, unknown>[];
+        const oportunidades = sumOportunidadesPeriodo(
+          (oportunidadesData ?? []) as Record<string, unknown>[],
+          sector
+        );
+        return rowToKpisAggregated(findKpiRowForSector(rows, sector), oportunidades);
       }),
     staleTime: 5 * 60 * 1000,
   });
@@ -198,17 +199,37 @@ export const useKpisVendas = (sector: Sector = "avantia") =>
 /** Busca KPIs por TODOS os setores numa só query (pra alimentar metas) */
 export const useKpisPorSetor = () =>
   useQuery({
-    queryKey: ["gold", "vendas_kpis_setor_v4"],
+    queryKey: ["gold", "vendas_kpis_setor_v5"],
     queryFn: async (): Promise<Record<Sector, KpisAggregated>> =>
       guard(async () => {
-        const { data, error } = await supabaseGold.from("mv_kpis_gerais").select("*");
-        if (error) throw error;
-        const rows = (data ?? []) as Record<string, unknown>[];
+        const [{ data: kpiData, error: kpiError }, { data: oportunidadesData, error: oportunidadesError }] =
+          await Promise.all([
+            supabaseGold.from("mv_kpis_gerais").select("*"),
+            supabaseGold
+              .from("mv_oportunidades_geradas_mes")
+              .select("pipeline_nome, ano, mes, qtd_gerada"),
+          ]);
+        if (kpiError) throw kpiError;
+        if (oportunidadesError) throw oportunidadesError;
+        const rows = (kpiData ?? []) as Record<string, unknown>[];
+        const oportunidadesRows = (oportunidadesData ?? []) as Record<string, unknown>[];
         return {
-          avantia: rowToKpisAggregated(findKpiRowForSector(rows, "avantia")),
-          publico: rowToKpisAggregated(findKpiRowForSector(rows, "publico")),
-          privado: rowToKpisAggregated(findKpiRowForSector(rows, "privado")),
-          audio_video: rowToKpisAggregated(findKpiRowForSector(rows, "audio_video")),
+          avantia: rowToKpisAggregated(
+            findKpiRowForSector(rows, "avantia"),
+            sumOportunidadesPeriodo(oportunidadesRows, "avantia")
+          ),
+          publico: rowToKpisAggregated(
+            findKpiRowForSector(rows, "publico"),
+            sumOportunidadesPeriodo(oportunidadesRows, "publico")
+          ),
+          privado: rowToKpisAggregated(
+            findKpiRowForSector(rows, "privado"),
+            sumOportunidadesPeriodo(oportunidadesRows, "privado")
+          ),
+          audio_video: rowToKpisAggregated(
+            findKpiRowForSector(rows, "audio_video"),
+            sumOportunidadesPeriodo(oportunidadesRows, "audio_video")
+          ),
         };
       }),
     staleTime: 5 * 60 * 1000,
@@ -375,7 +396,7 @@ export const useVendasGestorPeriodo = (sector: Sector = "avantia") =>
 
 /* --------------------------- Metas ----------------------------- */
 
-/** Metas anuais por setor. Metas mensais derivam proporcionalmente da meta anual / 12. */
+/** Metas anuais por setor. */
 export const METAS_ANUAIS: Record<Sector, number> = {
   avantia: 130_000_000,
   publico: 55_000_000,
@@ -383,9 +404,22 @@ export const METAS_ANUAIS: Record<Sector, number> = {
   audio_video: 15_000_000,
 };
 
-export const METAS_MENSAIS: Record<Sector, number> = {
-  avantia: METAS_ANUAIS.avantia / 12,
-  publico: METAS_ANUAIS.publico / 12,
-  privado: METAS_ANUAIS.privado / 12,
-  audio_video: METAS_ANUAIS.audio_video / 12,
+export const METAS_MENSAIS_POR_MES: Record<number, Record<Sector, number>> = {
+  1: { avantia: 0, privado: 0, publico: 0, audio_video: 0 },
+  2: { avantia: 2_636_887.05, privado: 2_036_887.05, publico: 0, audio_video: 600_000 },
+  3: { avantia: 4_222_531.80, privado: 3_922_531.80, publico: 0, audio_video: 300_000 },
+  4: { avantia: 6_208_311.38, privado: 4_895_012.40, publico: 1_013_298.98, audio_video: 300_000 },
+  5: { avantia: 5_294_199.47, privado: 2_657_844.86, publico: 2_136_354.61, audio_video: 500_000 },
+  6: { avantia: 14_196_803.92, privado: 6_173_668.18, publico: 7_223_135.74, audio_video: 800_000 },
+  7: { avantia: 19_027_773.96, privado: 12_167_154.65, publico: 5_360_619.31, audio_video: 1_500_000 },
+  8: { avantia: 14_841_159.96, privado: 4_327_286.78, publico: 8_513_873.18, audio_video: 2_000_000 },
+  9: { avantia: 11_282_142.03, privado: 2_022_358.82, publico: 7_259_783.21, audio_video: 2_000_000 },
+  10: { avantia: 11_588_162.27, privado: 2_088_162.27, publico: 7_500_000, audio_video: 2_000_000 },
+  11: { avantia: 20_824_393, privado: 7_824_393, publico: 11_000_000, audio_video: 2_000_000 },
+  12: { avantia: 19_884_700.19, privado: 11_884_700.19, publico: 5_000_000, audio_video: 3_000_000 },
 };
+
+export const getMetasMensaisAtuais = (date = new Date()): Record<Sector, number> =>
+  METAS_MENSAIS_POR_MES[date.getMonth() + 1] ?? METAS_MENSAIS_POR_MES[1];
+
+export const METAS_MENSAIS: Record<Sector, number> = getMetasMensaisAtuais();

@@ -102,7 +102,7 @@ const KpiStrip = ({
               <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">
                 {it.value}
               </p>
-              {it.label === "Win Rate" ? null : compareLoading ? (
+              {it.label === "Taxa de Conversão" ? null : compareLoading ? (
                 <Skeleton className="h-4 w-40 mt-1" />
               ) : (
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -437,7 +437,7 @@ export const VendasTab = ({ sector }: VendasTabProps) => {
         { label: "Valor Fechado", value: "—", icon: DollarSign, deltaPct: 0, previousYear: refYear, previousAbsolute: null, previousKind: "brl" as const },
         { label: "Qtd. de Negócios", value: "—", icon: ListChecks, deltaPct: 0, previousYear: refYear, previousAbsolute: null, previousKind: "number" as const },
         { label: "Ticket Médio", value: "—", icon: Receipt, deltaPct: 0, previousYear: refYear, previousAbsolute: null, previousKind: "brl" as const },
-        { label: "Win Rate", value: "—", icon: Target, deltaPct: 0, previousYear: refYear, previousAbsolute: null, previousKind: "percent" as const },
+        { label: "Taxa de Conversão", value: "—", icon: Target, deltaPct: 0, previousYear: refYear, previousAbsolute: null, previousKind: "percent" as const },
       ];
     }
     const deltaFromRef = (cur: number, prev: number | null | undefined) => {
@@ -479,7 +479,7 @@ export const VendasTab = ({ sector }: VendasTabProps) => {
         previousKind: "brl",
       },
       {
-        label: "Win Rate",
+        label: "Taxa de Conversão",
         value: formatPercent(k.win_rate_ytd),
         icon: Target,
         deltaPct:
@@ -500,7 +500,7 @@ export const VendasTab = ({ sector }: VendasTabProps) => {
         { label: "Valor Fechado", value: "—", icon: DollarSign, deltaPct: 0, previousYear: refYear, previousAbsolute: null, previousKind: "brl" as const },
         { label: "Qtd. de Negócios", value: "—", icon: ListChecks, deltaPct: 0, previousYear: refYear, previousAbsolute: null, previousKind: "number" as const },
         { label: "Ticket Médio", value: "—", icon: Receipt, deltaPct: 0, previousYear: refYear, previousAbsolute: null, previousKind: "brl" as const },
-        { label: "Win Rate", value: "—", icon: Target, deltaPct: 0, previousYear: refYear, previousAbsolute: null, previousKind: "percent" as const },
+        { label: "Taxa de Conversão", value: "—", icon: Target, deltaPct: 0, previousYear: refYear, previousAbsolute: null, previousKind: "percent" as const },
       ];
     }
     const deltaMtd = (cur: number, prev: number | null | undefined) => {
@@ -542,7 +542,7 @@ export const VendasTab = ({ sector }: VendasTabProps) => {
         previousKind: "brl",
       },
       {
-        label: "Win Rate",
+        label: "Taxa de Conversão",
         value: formatPercent(k.win_rate_mtd),
         icon: Target,
         deltaPct:
