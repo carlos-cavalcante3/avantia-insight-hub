@@ -66,6 +66,15 @@ const calcularTaxaConversao = (ganhos: number, oportunidades: number): number =>
 /** Consolida várias linhas de `mv_kpis_gerais` (ex.: visão Geral = Privado + Público + Áudio).
  *  IMPORTANTE: somamos os números brutos (qtd_ganhos / qtd_oportunidades) e recalculamos
  *  a taxa de conversão no JS. Nunca somar ou tirar média de porcentagens. */
+const safePct = (num: number, den: number): number => {
+  if (!den || den <= 0) return 0;
+  const v = (num / den) * 100;
+  return Number.isFinite(v) ? v : 0;
+};
+
+/** Consolida várias linhas de `mv_kpis_gerais` somando números brutos e recalculando taxa no JS.
+ *  Nunca somar ou tirar média de porcentagens. Usa `total_propostas_*` (campo correto da view)
+ *  com fallback para `qtd_oportunidades_*`. */
 const consolidateKpiSubset = (rows: Record<string, unknown>[]): Record<string, unknown> => {
   let valor_ytd = 0,
     qtd_ganhos_ytd = 0,
@@ -76,20 +85,22 @@ const consolidateKpiSubset = (rows: Record<string, unknown>[]): Record<string, u
   for (const r of rows) {
     valor_ytd += Number(r.valor_ganho_ytd ?? r.valor_total_ganho_ytd ?? 0);
     qtd_ganhos_ytd += Number(r.qtd_ganhos_ytd ?? r.total_negocios_ganhos_ytd ?? 0);
-    qtd_oport_ytd += Number(r.qtd_oportunidades_ytd ?? 0);
+    qtd_oport_ytd += Number(r.total_propostas_ytd ?? r.qtd_oportunidades_ytd ?? 0);
     valor_mtd += Number(r.valor_ganho_mtd ?? 0);
     qtd_ganhos_mtd += Number(r.qtd_ganhos_mtd ?? 0);
-    qtd_oport_mtd += Number(r.qtd_oportunidades_mtd ?? 0);
+    qtd_oport_mtd += Number(r.total_propostas_mtd ?? r.qtd_oportunidades_mtd ?? 0);
   }
   return {
     valor_ganho_ytd: valor_ytd,
     qtd_ganhos_ytd,
     qtd_oportunidades_ytd: qtd_oport_ytd,
-    taxa_conversao_ytd: calcularTaxaConversao(qtd_ganhos_ytd, qtd_oport_ytd),
+    total_propostas_ytd: qtd_oport_ytd,
+    taxa_conversao_ytd: safePct(qtd_ganhos_ytd, qtd_oport_ytd),
     valor_ganho_mtd: valor_mtd,
     qtd_ganhos_mtd,
     qtd_oportunidades_mtd: qtd_oport_mtd,
-    taxa_conversao_mtd: calcularTaxaConversao(qtd_ganhos_mtd, qtd_oport_mtd),
+    total_propostas_mtd: qtd_oport_mtd,
+    taxa_conversao_mtd: safePct(qtd_ganhos_mtd, qtd_oport_mtd),
   };
 };
 
@@ -99,8 +110,8 @@ const findKpiRowForSector = (
 ): Record<string, unknown> | null => {
   if (!rows.length) return null;
   if (sector === "avantia") {
-    const subset = rows.filter((r) => isPipelineNomeAvantiaGeral(String(r.pipeline_nome)));
-    return subset.length ? consolidateKpiSubset(subset) : null;
+    // Avantia (Geral): sem filtro manual — soma TODAS as linhas que a view retornar.
+    return consolidateKpiSubset(rows);
   }
   const found = rows.find((row) => {
     const n = normalizePipelineNome(String(row.pipeline_nome ?? ""));
