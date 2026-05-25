@@ -145,16 +145,11 @@ const rowToKpisAggregated = (row: Record<string, unknown> | null): KpisAggregate
   const qtd_ytd = Number(row.qtd_ganhos_ytd ?? row.total_negocios_ganhos_ytd ?? 0);
   const valor_mtd = Number(row.valor_ganho_mtd ?? 0);
   const qtd_mtd = Number(row.qtd_ganhos_mtd ?? 0);
-  // Setores individuais: usar diretamente taxa_conversao_* da view.
-  // Avantia (Geral): já foi recalculado em consolidateKpiSubset a partir de somas brutas.
-  const win_rate_ytd =
-    row.taxa_conversao_ytd != null
-      ? Number(row.taxa_conversao_ytd)
-      : calcularTaxaConversao(qtd_ytd, Number(row.qtd_oportunidades_ytd ?? 0));
-  const win_rate_mtd =
-    row.taxa_conversao_mtd != null
-      ? Number(row.taxa_conversao_mtd)
-      : calcularTaxaConversao(qtd_mtd, Number(row.qtd_oportunidades_mtd ?? 0));
+  // Recalcula sempre a partir dos brutos para garantir integridade (evita NaN/Infinity).
+  const oport_ytd = Number(row.total_propostas_ytd ?? row.qtd_oportunidades_ytd ?? 0);
+  const oport_mtd = Number(row.total_propostas_mtd ?? row.qtd_oportunidades_mtd ?? 0);
+  const win_rate_ytd = safePct(qtd_ytd, oport_ytd);
+  const win_rate_mtd = safePct(qtd_mtd, oport_mtd);
   return {
     valor_ytd,
     qtd_ytd,
