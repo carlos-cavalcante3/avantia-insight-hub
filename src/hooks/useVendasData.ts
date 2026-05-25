@@ -66,6 +66,15 @@ const calcularTaxaConversao = (ganhos: number, oportunidades: number): number =>
 /** Consolida várias linhas de `mv_kpis_gerais` (ex.: visão Geral = Privado + Público + Áudio).
  *  IMPORTANTE: somamos os números brutos (qtd_ganhos / qtd_oportunidades) e recalculamos
  *  a taxa de conversão no JS. Nunca somar ou tirar média de porcentagens. */
+const safePct = (num: number, den: number): number => {
+  if (!den || den <= 0) return 0;
+  const v = (num / den) * 100;
+  return Number.isFinite(v) ? v : 0;
+};
+
+/** Consolida várias linhas de `mv_kpis_gerais` somando números brutos e recalculando taxa no JS.
+ *  Nunca somar ou tirar média de porcentagens. Usa `total_propostas_*` (campo correto da view)
+ *  com fallback para `qtd_oportunidades_*`. */
 const consolidateKpiSubset = (rows: Record<string, unknown>[]): Record<string, unknown> => {
   let valor_ytd = 0,
     qtd_ganhos_ytd = 0,
@@ -76,20 +85,22 @@ const consolidateKpiSubset = (rows: Record<string, unknown>[]): Record<string, u
   for (const r of rows) {
     valor_ytd += Number(r.valor_ganho_ytd ?? r.valor_total_ganho_ytd ?? 0);
     qtd_ganhos_ytd += Number(r.qtd_ganhos_ytd ?? r.total_negocios_ganhos_ytd ?? 0);
-    qtd_oport_ytd += Number(r.qtd_oportunidades_ytd ?? 0);
+    qtd_oport_ytd += Number(r.total_propostas_ytd ?? r.qtd_oportunidades_ytd ?? 0);
     valor_mtd += Number(r.valor_ganho_mtd ?? 0);
     qtd_ganhos_mtd += Number(r.qtd_ganhos_mtd ?? 0);
-    qtd_oport_mtd += Number(r.qtd_oportunidades_mtd ?? 0);
+    qtd_oport_mtd += Number(r.total_propostas_mtd ?? r.qtd_oportunidades_mtd ?? 0);
   }
   return {
     valor_ganho_ytd: valor_ytd,
     qtd_ganhos_ytd,
     qtd_oportunidades_ytd: qtd_oport_ytd,
-    taxa_conversao_ytd: calcularTaxaConversao(qtd_ganhos_ytd, qtd_oport_ytd),
+    total_propostas_ytd: qtd_oport_ytd,
+    taxa_conversao_ytd: safePct(qtd_ganhos_ytd, qtd_oport_ytd),
     valor_ganho_mtd: valor_mtd,
     qtd_ganhos_mtd,
     qtd_oportunidades_mtd: qtd_oport_mtd,
-    taxa_conversao_mtd: calcularTaxaConversao(qtd_ganhos_mtd, qtd_oport_mtd),
+    total_propostas_mtd: qtd_oport_mtd,
+    taxa_conversao_mtd: safePct(qtd_ganhos_mtd, qtd_oport_mtd),
   };
 };
 
@@ -99,8 +110,8 @@ const findKpiRowForSector = (
 ): Record<string, unknown> | null => {
   if (!rows.length) return null;
   if (sector === "avantia") {
-    const subset = rows.filter((r) => isPipelineNomeAvantiaGeral(String(r.pipeline_nome)));
-    return subset.length ? consolidateKpiSubset(subset) : null;
+    // Avantia (Geral): sem filtro manual — soma TODAS as linhas que a view retornar.
+    return consolidateKpiSubset(rows);
   }
   const found = rows.find((row) => {
     const n = normalizePipelineNome(String(row.pipeline_nome ?? ""));
@@ -134,16 +145,11 @@ const rowToKpisAggregated = (row: Record<string, unknown> | null): KpisAggregate
   const qtd_ytd = Number(row.qtd_ganhos_ytd ?? row.total_negocios_ganhos_ytd ?? 0);
   const valor_mtd = Number(row.valor_ganho_mtd ?? 0);
   const qtd_mtd = Number(row.qtd_ganhos_mtd ?? 0);
-  // Setores individuais: usar diretamente taxa_conversao_* da view.
-  // Avantia (Geral): já foi recalculado em consolidateKpiSubset a partir de somas brutas.
-  const win_rate_ytd =
-    row.taxa_conversao_ytd != null
-      ? Number(row.taxa_conversao_ytd)
-      : calcularTaxaConversao(qtd_ytd, Number(row.qtd_oportunidades_ytd ?? 0));
-  const win_rate_mtd =
-    row.taxa_conversao_mtd != null
-      ? Number(row.taxa_conversao_mtd)
-      : calcularTaxaConversao(qtd_mtd, Number(row.qtd_oportunidades_mtd ?? 0));
+  // Recalcula sempre a partir dos brutos para garantir integridade (evita NaN/Infinity).
+  const oport_ytd = Number(row.total_propostas_ytd ?? row.qtd_oportunidades_ytd ?? 0);
+  const oport_mtd = Number(row.total_propostas_mtd ?? row.qtd_oportunidades_mtd ?? 0);
+  const win_rate_ytd = safePct(qtd_ytd, oport_ytd);
+  const win_rate_mtd = safePct(qtd_mtd, oport_mtd);
   return {
     valor_ytd,
     qtd_ytd,
@@ -160,7 +166,7 @@ const rowToKpisAggregated = (row: Record<string, unknown> | null): KpisAggregate
 
 export const useKpisVendas = (sector: Sector = "avantia") =>
   useQuery({
-    queryKey: ["gold", "vendas_kpis_v6", sector],
+    queryKey: ["gold", "vendas_kpis_v7", sector],
     queryFn: async (): Promise<KpisAggregated> =>
       guard(async () => {
         const { data, error } = await supabaseGold.from("mv_kpis_gerais").select("*");
@@ -174,7 +180,7 @@ export const useKpisVendas = (sector: Sector = "avantia") =>
 /** Busca KPIs por TODOS os setores numa só query (pra alimentar metas) */
 export const useKpisPorSetor = () =>
   useQuery({
-    queryKey: ["gold", "vendas_kpis_setor_v6"],
+    queryKey: ["gold", "vendas_kpis_setor_v7"],
     queryFn: async (): Promise<Record<Sector, KpisAggregated>> =>
       guard(async () => {
         const { data, error } = await supabaseGold.from("mv_kpis_gerais").select("*");
