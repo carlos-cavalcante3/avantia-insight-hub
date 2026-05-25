@@ -60,57 +60,36 @@ export interface KpisAggregated {
   win_rate_mtd_ano_anterior: number | null;
 }
 
-/** Quantidade de oportunidades geradas usada no calculo da taxa de conversao comercial. */
-interface OportunidadesPeriodo {
-  ytd: number;
-  mtd: number;
-}
+const calcularTaxaConversao = (ganhos: number, oportunidades: number): number =>
+  oportunidades > 0 ? (ganhos / oportunidades) * 100 : 0;
 
-const emptyOportunidades: OportunidadesPeriodo = { ytd: 0, mtd: 0 };
-
-const calcularTaxaConversao = (vendas: number, oportunidades: number): number =>
-  oportunidades > 0 ? (vendas / oportunidades) * 100 : 0;
-
-const sumOportunidadesPeriodo = (
-  rows: Record<string, unknown>[],
-  sector: Sector
-): OportunidadesPeriodo => {
-  const now = new Date();
-  const anoAtual = now.getFullYear();
-  const mesAtual = now.getMonth() + 1;
-  return rows.reduce<OportunidadesPeriodo>(
-    (acc, row) => {
-      const ano = Number(row.ano);
-      const mes = Number(row.mes);
-      if (ano !== anoAtual || mes < 1 || mes > mesAtual || !matchSector(String(row.pipeline_nome), sector)) {
-        return acc;
-      }
-      const qtd = Number(row.qtd_gerada ?? 0);
-      acc.ytd += qtd;
-      if (mes === mesAtual) acc.mtd += qtd;
-      return acc;
-    },
-    { ...emptyOportunidades }
-  );
-};
-
-/** Consolida várias linhas de `mv_kpis_gerais` (ex.: visão Geral = Privado + Público + Áudio). */
+/** Consolida várias linhas de `mv_kpis_gerais` (ex.: visão Geral = Privado + Público + Áudio).
+ *  IMPORTANTE: somamos os números brutos (qtd_ganhos / qtd_oportunidades) e recalculamos
+ *  a taxa de conversão no JS. Nunca somar ou tirar média de porcentagens. */
 const consolidateKpiSubset = (rows: Record<string, unknown>[]): Record<string, unknown> => {
   let valor_ytd = 0,
-    qtd_ytd = 0,
+    qtd_ganhos_ytd = 0,
+    qtd_oport_ytd = 0,
     valor_mtd = 0,
-    qtd_mtd = 0;
+    qtd_ganhos_mtd = 0,
+    qtd_oport_mtd = 0;
   for (const r of rows) {
     valor_ytd += Number(r.valor_ganho_ytd ?? r.valor_total_ganho_ytd ?? 0);
-    qtd_ytd += Number(r.qtd_ganhos_ytd ?? r.total_negocios_ganhos_ytd ?? 0);
+    qtd_ganhos_ytd += Number(r.qtd_ganhos_ytd ?? r.total_negocios_ganhos_ytd ?? 0);
+    qtd_oport_ytd += Number(r.qtd_oportunidades_ytd ?? 0);
     valor_mtd += Number(r.valor_ganho_mtd ?? 0);
-    qtd_mtd += Number(r.qtd_ganhos_mtd ?? 0);
+    qtd_ganhos_mtd += Number(r.qtd_ganhos_mtd ?? 0);
+    qtd_oport_mtd += Number(r.qtd_oportunidades_mtd ?? 0);
   }
   return {
     valor_ganho_ytd: valor_ytd,
-    qtd_ganhos_ytd: qtd_ytd,
+    qtd_ganhos_ytd,
+    qtd_oportunidades_ytd: qtd_oport_ytd,
+    taxa_conversao_ytd: calcularTaxaConversao(qtd_ganhos_ytd, qtd_oport_ytd),
     valor_ganho_mtd: valor_mtd,
-    qtd_ganhos_mtd: qtd_mtd,
+    qtd_ganhos_mtd,
+    qtd_oportunidades_mtd: qtd_oport_mtd,
+    taxa_conversao_mtd: calcularTaxaConversao(qtd_ganhos_mtd, qtd_oport_mtd),
   };
 };
 
@@ -136,10 +115,7 @@ const findKpiRowForSector = (
   return found ?? rows[0] ?? null;
 };
 
-const rowToKpisAggregated = (
-  row: Record<string, unknown> | null,
-  oportunidades: OportunidadesPeriodo = emptyOportunidades
-): KpisAggregated => {
+const rowToKpisAggregated = (row: Record<string, unknown> | null): KpisAggregated => {
   if (!row) {
     return {
       valor_ytd: 0,
@@ -158,15 +134,25 @@ const rowToKpisAggregated = (
   const qtd_ytd = Number(row.qtd_ganhos_ytd ?? row.total_negocios_ganhos_ytd ?? 0);
   const valor_mtd = Number(row.valor_ganho_mtd ?? 0);
   const qtd_mtd = Number(row.qtd_ganhos_mtd ?? 0);
+  // Setores individuais: usar diretamente taxa_conversao_* da view.
+  // Avantia (Geral): já foi recalculado em consolidateKpiSubset a partir de somas brutas.
+  const win_rate_ytd =
+    row.taxa_conversao_ytd != null
+      ? Number(row.taxa_conversao_ytd)
+      : calcularTaxaConversao(qtd_ytd, Number(row.qtd_oportunidades_ytd ?? 0));
+  const win_rate_mtd =
+    row.taxa_conversao_mtd != null
+      ? Number(row.taxa_conversao_mtd)
+      : calcularTaxaConversao(qtd_mtd, Number(row.qtd_oportunidades_mtd ?? 0));
   return {
     valor_ytd,
     qtd_ytd,
     ticket_ytd: qtd_ytd ? valor_ytd / qtd_ytd : 0,
-    win_rate_ytd: calcularTaxaConversao(qtd_ytd, oportunidades.ytd),
+    win_rate_ytd,
     valor_mtd,
     qtd_mtd,
     ticket_mtd: qtd_mtd ? valor_mtd / qtd_mtd : 0,
-    win_rate_mtd: calcularTaxaConversao(qtd_mtd, oportunidades.mtd),
+    win_rate_mtd,
     win_rate_ytd_ano_anterior: null,
     win_rate_mtd_ano_anterior: null,
   };
@@ -174,24 +160,13 @@ const rowToKpisAggregated = (
 
 export const useKpisVendas = (sector: Sector = "avantia") =>
   useQuery({
-    queryKey: ["gold", "vendas_kpis_v5", sector],
+    queryKey: ["gold", "vendas_kpis_v6", sector],
     queryFn: async (): Promise<KpisAggregated> =>
       guard(async () => {
-        const [{ data: kpiData, error: kpiError }, { data: oportunidadesData, error: oportunidadesError }] =
-          await Promise.all([
-            supabaseGold.from("mv_kpis_gerais").select("*"),
-            supabaseGold
-              .from("mv_oportunidades_geradas_mes")
-              .select("pipeline_nome, ano, mes, qtd_gerada"),
-          ]);
-        if (kpiError) throw kpiError;
-        if (oportunidadesError) throw oportunidadesError;
-        const rows = (kpiData ?? []) as Record<string, unknown>[];
-        const oportunidades = sumOportunidadesPeriodo(
-          (oportunidadesData ?? []) as Record<string, unknown>[],
-          sector
-        );
-        return rowToKpisAggregated(findKpiRowForSector(rows, sector), oportunidades);
+        const { data, error } = await supabaseGold.from("mv_kpis_gerais").select("*");
+        if (error) throw error;
+        const rows = (data ?? []) as Record<string, unknown>[];
+        return rowToKpisAggregated(findKpiRowForSector(rows, sector));
       }),
     staleTime: 5 * 60 * 1000,
   });
@@ -199,37 +174,17 @@ export const useKpisVendas = (sector: Sector = "avantia") =>
 /** Busca KPIs por TODOS os setores numa só query (pra alimentar metas) */
 export const useKpisPorSetor = () =>
   useQuery({
-    queryKey: ["gold", "vendas_kpis_setor_v5"],
+    queryKey: ["gold", "vendas_kpis_setor_v6"],
     queryFn: async (): Promise<Record<Sector, KpisAggregated>> =>
       guard(async () => {
-        const [{ data: kpiData, error: kpiError }, { data: oportunidadesData, error: oportunidadesError }] =
-          await Promise.all([
-            supabaseGold.from("mv_kpis_gerais").select("*"),
-            supabaseGold
-              .from("mv_oportunidades_geradas_mes")
-              .select("pipeline_nome, ano, mes, qtd_gerada"),
-          ]);
-        if (kpiError) throw kpiError;
-        if (oportunidadesError) throw oportunidadesError;
-        const rows = (kpiData ?? []) as Record<string, unknown>[];
-        const oportunidadesRows = (oportunidadesData ?? []) as Record<string, unknown>[];
+        const { data, error } = await supabaseGold.from("mv_kpis_gerais").select("*");
+        if (error) throw error;
+        const rows = (data ?? []) as Record<string, unknown>[];
         return {
-          avantia: rowToKpisAggregated(
-            findKpiRowForSector(rows, "avantia"),
-            sumOportunidadesPeriodo(oportunidadesRows, "avantia")
-          ),
-          publico: rowToKpisAggregated(
-            findKpiRowForSector(rows, "publico"),
-            sumOportunidadesPeriodo(oportunidadesRows, "publico")
-          ),
-          privado: rowToKpisAggregated(
-            findKpiRowForSector(rows, "privado"),
-            sumOportunidadesPeriodo(oportunidadesRows, "privado")
-          ),
-          audio_video: rowToKpisAggregated(
-            findKpiRowForSector(rows, "audio_video"),
-            sumOportunidadesPeriodo(oportunidadesRows, "audio_video")
-          ),
+          avantia: rowToKpisAggregated(findKpiRowForSector(rows, "avantia")),
+          publico: rowToKpisAggregated(findKpiRowForSector(rows, "publico")),
+          privado: rowToKpisAggregated(findKpiRowForSector(rows, "privado")),
+          audio_video: rowToKpisAggregated(findKpiRowForSector(rows, "audio_video")),
         };
       }),
     staleTime: 5 * 60 * 1000,
