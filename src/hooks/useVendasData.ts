@@ -166,7 +166,7 @@ const rowToKpisAggregated = (row: Record<string, unknown> | null): KpisAggregate
 
 export const useKpisVendas = (sector: Sector = "avantia") =>
   useQuery({
-    queryKey: ["gold", "vendas_kpis_v6", sector],
+    queryKey: ["gold", "vendas_kpis_v7", sector],
     queryFn: async (): Promise<KpisAggregated> =>
       guard(async () => {
         const { data, error } = await supabaseGold.from("mv_kpis_gerais").select("*");
@@ -180,7 +180,7 @@ export const useKpisVendas = (sector: Sector = "avantia") =>
 /** Busca KPIs por TODOS os setores numa só query (pra alimentar metas) */
 export const useKpisPorSetor = () =>
   useQuery({
-    queryKey: ["gold", "vendas_kpis_setor_v6"],
+    queryKey: ["gold", "vendas_kpis_setor_v7"],
     queryFn: async (): Promise<Record<Sector, KpisAggregated>> =>
       guard(async () => {
         const { data, error } = await supabaseGold.from("mv_kpis_gerais").select("*");
