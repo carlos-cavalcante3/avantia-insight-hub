@@ -100,13 +100,10 @@ interface PipelineTabProps {
 
 export const PipelineTab = ({ sector }: PipelineTabProps) => {
   const scope = sectorToScope(sector);
+  const pipelineFilter = sector === "audio_video" ? "Áudio e Vídeo" : undefined;
   const pipelineCards = usePipelinePonderado(sector);
-  const funil = usePipelineFunil(scope, sector === "audio_video" ? "Áudio e Vídeo" : undefined);
-  const clientes = usePipelineClientesUltimaMov(
-    5000,
-    scope,
-    sector === "audio_video" ? "Áudio e Vídeo" : undefined
-  );
+  const funil = usePipelineFunil(scope, pipelineFilter);
+  const clientes = usePipelineClientesUltimaMov(5000, scope);
 
   /* Pipeline Ponderado RECALCULADO no front com os pesos da nova lista de etapas
    * (inclui Qualificação com peso 15%). Mantém o valor da view como fallback. */
