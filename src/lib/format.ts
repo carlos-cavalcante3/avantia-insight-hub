@@ -1,14 +1,45 @@
-export const formatBRL = (value: number): string =>
-  new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    minimumFractionDigits: 2,
-  }).format(value);
+/**
+ * Formatação global de valores monetários.
+ * Decisão de produto: NÃO exibir "R$" em cards/eixos. Valores grandes
+ * recebem sufixo "M" (milhões) ou "K" (milhares).
+ */
 
-export const formatCompactBRL = (value: number): string => {
-  if (value >= 1_000_000) return `R$ ${(value / 1_000_000).toFixed(1).replace(".", ",")}M`;
-  if (value >= 1_000) return `R$ ${(value / 1_000).toFixed(1).replace(".", ",")}K`;
-  return formatBRL(value);
+const nf2 = new Intl.NumberFormat("pt-BR", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const nf1 = new Intl.NumberFormat("pt-BR", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
+/**
+ * Máscara global "Avantia": sem cifrão.
+ *  ≥ 1.000.000  → "1,5M"
+ *  ≥ 1.000      → "350K"
+ *  resto        → "1.234,56"
+ */
+export const formatBRL = (value: number): string => {
+  const v = Number(value ?? 0);
+  if (!Number.isFinite(v)) return "0";
+  const abs = Math.abs(v);
+  const sign = v < 0 ? "-" : "";
+  if (abs >= 1_000_000) return `${sign}${nf1.format(abs / 1_000_000)}M`;
+  if (abs >= 1_000) return `${sign}${nf1.format(abs / 1_000)}K`;
+  return `${sign}${nf2.format(abs)}`;
+};
+
+/** Compatibilidade — mesmo formato compacto. */
+export const formatCompactBRL = (value: number): string => formatBRL(value);
+
+/** Versão "extensa" sem cifrão para tooltips/detalhes finos. */
+export const formatBRLFull = (value: number): string => {
+  const v = Number(value ?? 0);
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number.isFinite(v) ? v : 0);
 };
 
 export const formatPercent = (value: number, digits = 1): string =>

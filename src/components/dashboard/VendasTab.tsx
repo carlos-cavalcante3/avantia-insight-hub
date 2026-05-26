@@ -26,6 +26,7 @@ import {
   METAS_ANUAIS,
   METAS_MENSAIS,
 } from "@/hooks/useVendasData";
+import { usePerformanceGestor } from "@/hooks/useGerentesData";
 import {
   DollarSign,
   ListChecks,
@@ -386,24 +387,20 @@ const ValueBarChart = ({
                 }}
               />
               <RechartsTooltip
-                formatter={(v: number) => formatBRL(Number(v))}
-                contentStyle={{
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
+                cursor={false}
+                content={() => null}
+                wrapperStyle={{ display: "none" }}
               />
               <Bar
                 dataKey="valor"
-                fill="#f97316"
+                fill="hsl(var(--primary))"
                 radius={[0, 6, 6, 0]}
                 barSize={18}
               >
                 <LabelList
                   dataKey="valor"
                   position="right"
-                  fill="#0f172a"
+                  fill="hsl(var(--foreground))"
                   fontSize={12}
                   formatter={(v: number) => formatBRL(Number(v))}
                 />
@@ -425,6 +422,18 @@ export const VendasTab = ({ sector }: VendasTabProps) => {
   const clientes = useTopClientesPeriodo(sector, 15);
   const gestores = useVendasGestorPeriodo(sector);
   const refs2025 = useReferenciasVendasAno2025(sector);
+  const perfGestores = usePerformanceGestor();
+
+  /* Soma das Propostas Colocadas (universo completo — sem whitelist).
+   * Este é o NOVO indicador primário do dashboard. */
+  const propostasColocadasValor = useMemo(
+    () =>
+      (perfGestores.data ?? []).reduce(
+        (s, g) => s + Number(g.valor_propostas_ytd ?? 0),
+        0
+      ),
+    [perfGestores.data]
+  );
 
   if (kpis.error) return <ErrorState message={(kpis.error as Error).message} />;
 
@@ -589,8 +598,35 @@ export const VendasTab = ({ sector }: VendasTabProps) => {
 
   const sectorLabel = SECTOR_LABEL[sector];
 
+  const metasYtd: Record<Sector, number> = {
+    avantia: (METAS_ANUAIS.avantia * (new Date().getMonth() + 1)) / 12,
+    publico: (METAS_ANUAIS.publico * (new Date().getMonth() + 1)) / 12,
+    privado: (METAS_ANUAIS.privado * (new Date().getMonth() + 1)) / 12,
+    audio_video: (METAS_ANUAIS.audio_video * (new Date().getMonth() + 1)) / 12,
+  };
+
   return (
     <>
+      {/* INDICADOR PRIMÁRIO (novo) — Propostas Colocadas */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <BigValueCard
+          title="Propostas Colocadas (YTD)"
+          subtitle={`Valor financeiro acumulado · ${sectorLabel}`}
+          value={
+            perfGestores.isLoading
+              ? "—"
+              : formatBRL(propostasColocadasValor)
+          }
+          isLoading={perfGestores.isLoading}
+        />
+        <BigValueCard
+          title="Valor Fechado (YTD)"
+          subtitle={`Receita ganha · ${sectorLabel}`}
+          value={kpis.data ? formatBRL(kpis.data.valor_ytd) : "—"}
+          isLoading={kpis.isLoading}
+        />
+      </div>
+
       {/* Bloco 1 - YTD */}
       <KpiStrip
         title="Vendas do Ano (YTD)"
@@ -627,11 +663,20 @@ export const VendasTab = ({ sector }: VendasTabProps) => {
         />
       </div>
 
-      {/* Bloco 5 - Metas Anual */}
+      {/* Bloco 5 - Metas Anuais (renomeado) */}
       <MetasBanner
-        title="Metas Anuais (YTD)"
-        subtitle="Valor atingido por setor"
+        title="Metas Anuais"
+        subtitle="Valor atingido por setor (acumulado YTD)"
         metas={METAS_ANUAIS}
+        atingidos={atingidosYtd}
+        isLoading={kpisPorSetor.isLoading}
+      />
+
+      {/* NOVO - Meta YTD (esperado acumulado até o momento) */}
+      <MetasBanner
+        title="Meta YTD"
+        subtitle="Desempenho esperado acumulado até o momento (proporcional aos meses transcorridos)"
+        metas={metasYtd}
         atingidos={atingidosYtd}
         isLoading={kpisPorSetor.isLoading}
       />
@@ -644,6 +689,7 @@ export const VendasTab = ({ sector }: VendasTabProps) => {
         atingidos={atingidosMtd}
         isLoading={kpisPorSetor.isLoading}
       />
+
 
       {/* Blocos 7 + 8 - YTD charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

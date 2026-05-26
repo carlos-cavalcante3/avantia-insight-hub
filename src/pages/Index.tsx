@@ -24,6 +24,7 @@ import {
 } from "@/hooks/useDashboardData";
 import type { Sector } from "@/hooks/useVendasData";
 import { usePerformanceGestor } from "@/hooks/useGerentesData";
+import { isGerenteWhitelisted } from "@/lib/gerentes";
 
 const sectorToScope = (s: Sector): PipelineScope => {
   if (s === "publico") return "setor_publico";
@@ -41,13 +42,12 @@ const Index = () => {
   const motivos = useMotivosPerda(pipelineScope);
   const perfGestores = usePerformanceGestor();
 
-  const gestoresList = useMemo(
-    () =>
-      Array.from(
-        new Set((perfGestores.data ?? []).map((g) => g.gestor_nome).filter(Boolean))
-      ).sort(),
-    [perfGestores.data]
-  );
+  const gestoresList = useMemo(() => {
+    const todos = Array.from(
+      new Set((perfGestores.data ?? []).map((g) => g.gestor_nome).filter(Boolean))
+    );
+    return todos.filter(isGerenteWhitelisted).sort();
+  }, [perfGestores.data]);
 
   useEffect(() => {
     if (!gestorSelecionado && gestoresList.length > 0) {
@@ -100,7 +100,7 @@ const Index = () => {
 
           {tab === "vendas" && <VendasTab sector={sector} />}
 
-          {tab === "pipeline" && <PipelineTab />}
+          {tab === "pipeline" && <PipelineTab sector={sector} />}
 
           {tab === "gerentes" && <GerentesTab />}
 

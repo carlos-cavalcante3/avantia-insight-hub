@@ -3,121 +3,113 @@
 @tailwind utilities;
 
 /* =========================================================
-   AVANTIA DESIGN SYSTEM
-   All colors HSL. Tokens only — never hardcode in components.
-   Brand:
-     Orange #CB762E  -> 26 64% 49%
-     Blue   #5579B7  -> 217 38% 53%
-     Navy   #181D27  -> 222 24% 12%
-     Near White #FAFAFA -> 0 0% 98%
-     Charcoal #414651 -> 220 9% 29%
-     Steel    #717680 -> 222 4% 47%
-     Silver   #C7CCD4 -> 215 12% 81%
+   AVANTIA DARK INSTITUCIONAL
+   Fundo geral: #0E2841 (Navy)
+   Painéis:     #163859 (Navy elevado)
+   Acento 1:    #567AB8 (Azul Secundário)
+   Acento 2:    #F1842A (Laranja Avantia)
    ========================================================= */
 
 @layer base {
   :root {
-    --background: 0 0% 98%;          /* #FAFAFA */
-    --foreground: 222 24% 12%;       /* #181D27 */
+    /* Fundo geral Navy */
+    --background: 211 65% 15%;          /* #0E2841 */
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 24% 12%;
+    /* Painéis: navy elevado */
+    --card: 209 60% 22%;                /* #163859 */
+    --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 24% 12%;
+    --popover: 209 60% 22%;
+    --popover-foreground: 0 0% 98%;
 
-    /* Brand */
-    --brand-orange: 26 64% 49%;       /* #CB762E */
-    --brand-orange-hover: 26 64% 43%;
-    --brand-blue: 217 38% 53%;        /* #5579B7 */
-    --brand-navy: 222 24% 12%;        /* #181D27 */
+    --brand-orange: 26 87% 56%;         /* #F1842A */
+    --brand-orange-hover: 26 87% 50%;
+    --brand-blue: 215 39% 53%;          /* #567AB8 */
+    --brand-navy: 211 65% 15%;          /* #0E2841 */
+    --brand-navy-elevated: 209 60% 22%; /* #163859 */
     --brand-near-white: 0 0% 98%;
-    --brand-charcoal: 220 9% 29%;     /* #414651 */
-    --brand-steel: 222 4% 47%;        /* #717680 */
-    --brand-silver: 215 12% 81%;      /* #C7CCD4 */
+    --brand-charcoal: 220 9% 29%;
+    --brand-steel: 215 12% 65%;
+    --brand-silver: 215 12% 81%;
 
-    --primary: 26 64% 49%;            /* orange */
+    --primary: 26 87% 56%;              /* laranja Avantia */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 217 38% 53%;         /* blue */
+    --secondary: 215 39% 53%;           /* azul secundário */
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 220 14% 96%;
-    --muted-foreground: 222 4% 47%;
+    --muted: 209 50% 28%;
+    --muted-foreground: 215 20% 78%;
 
-    --accent: 217 38% 95%;
-    --accent-foreground: 222 24% 12%;
+    --accent: 215 39% 53%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 72% 56%;
     --destructive-foreground: 0 0% 100%;
 
-    --warning: 32 95% 50%;
+    --warning: 32 95% 56%;
     --warning-foreground: 0 0% 100%;
 
-    --success: 142 60% 38%;
+    --success: 142 60% 45%;
     --success-foreground: 0 0% 100%;
 
-    --border: 215 12% 88%;
-    --input: 215 12% 81%;
-    --ring: 26 64% 49%;
+    --border: 210 35% 30%;
+    --input: 210 35% 30%;
+    --ring: 26 87% 56%;
 
-    --radius: 0.625rem;               /* 10px */
+    --radius: 0.625rem;
 
-    /* Sidebar (dark navy) */
-    --sidebar-background: 222 24% 12%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 26 64% 49%;
+    --sidebar-background: 211 65% 11%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 26 87% 56%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 24% 18%;
+    --sidebar-accent: 211 60% 17%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 222 20% 22%;
-    --sidebar-ring: 26 64% 49%;
+    --sidebar-border: 210 35% 22%;
+    --sidebar-ring: 26 87% 56%;
 
-    /* Effects */
-    --shadow-card: 0 1px 2px 0 hsl(222 24% 12% / 0.04), 0 4px 12px -2px hsl(222 24% 12% / 0.06);
-    --shadow-elevated: 0 4px 16px -2px hsl(222 24% 12% / 0.10);
-    --gradient-orange: linear-gradient(135deg, hsl(26 64% 49%), hsl(26 70% 56%));
-    --gradient-navy: linear-gradient(180deg, hsl(222 24% 12%), hsl(222 24% 9%));
+    --shadow-card: 0 1px 2px 0 hsl(0 0% 0% / 0.25), 0 6px 18px -4px hsl(0 0% 0% / 0.35);
+    --shadow-elevated: 0 4px 18px -2px hsl(0 0% 0% / 0.45);
+    --gradient-orange: linear-gradient(135deg, hsl(26 87% 56%), hsl(26 90% 62%));
+    --gradient-navy: linear-gradient(180deg, hsl(211 65% 15%), hsl(211 65% 11%));
   }
 
   .dark {
-    --background: 222 24% 8%;
+    /* mesmo dark institucional */
+    --background: 211 65% 15%;
     --foreground: 0 0% 98%;
-    --card: 222 24% 12%;
+    --card: 209 60% 22%;
     --card-foreground: 0 0% 98%;
-    --popover: 222 24% 12%;
+    --popover: 209 60% 22%;
     --popover-foreground: 0 0% 98%;
-    --primary: 26 64% 49%;
+    --primary: 26 87% 56%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 217 38% 53%;
+    --secondary: 215 39% 53%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 222 20% 18%;
-    --muted-foreground: 215 12% 70%;
-    --accent: 222 20% 18%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 72% 51%;
+    --muted: 209 50% 28%;
+    --muted-foreground: 215 20% 78%;
+    --accent: 215 39% 53%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 56%;
     --destructive-foreground: 0 0% 100%;
-    --border: 222 20% 22%;
-    --input: 222 20% 22%;
-    --ring: 26 64% 49%;
+    --border: 210 35% 30%;
+    --input: 210 35% 30%;
+    --ring: 26 87% 56%;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-  html, body {
+  * { @apply border-border; }
+  html, body, #root {
     font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     -webkit-font-smoothing: antialiased;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    min-height: 100vh;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
-  h1, h2, h3 {
-    @apply font-semibold;
-  }
+  body { @apply bg-background text-foreground; }
+  h1, h2, h3 { @apply font-semibold; }
 }
 
 @layer utilities {
