@@ -77,10 +77,16 @@ const RankBarChart = ({
               fill: "hsl(var(--foreground))",
               fontWeight: 600,
             }}
-            width={160}
+            width={130}
             interval={0}
           />
-          <Bar dataKey="qtd" fill={color} radius={[0, 6, 6, 0]} barSize={16}>
+          <Bar
+            dataKey="qtd"
+            fill={color}
+            radius={[0, 6, 6, 0]}
+            barSize={16}
+            className={color === ORANGE ? "neon-orange" : "neon-blue"}
+          >
             <LabelList
               dataKey="qtd"
               position="right"
@@ -91,6 +97,7 @@ const RankBarChart = ({
               }
             />
           </Bar>
+
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -199,7 +206,7 @@ export const GerentesTab = () => {
               <BarChart
                 data={chartData}
                 layout="vertical"
-                margin={{ top: 10, right: 140, left: 20, bottom: 10 }}
+                margin={{ top: 10, right: 110, left: 4, bottom: 10 }}
               >
                 <CartesianGrid
                   strokeDasharray="3 3"
@@ -215,10 +222,16 @@ export const GerentesTab = () => {
                     fill: "hsl(var(--foreground))",
                     fontWeight: 600,
                   }}
-                  width={220}
+                  width={140}
                   interval={0}
                 />
-                <Bar dataKey="valor" fill={ORANGE} radius={[0, 6, 6, 0]} barSize={18}>
+                <Bar
+                  dataKey="valor"
+                  fill={ORANGE}
+                  radius={[0, 6, 6, 0]}
+                  barSize={18}
+                  className="neon-orange"
+                >
                   <LabelList
                     dataKey="valor"
                     position="right"
@@ -230,6 +243,7 @@ export const GerentesTab = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
+
         )}
       </ReportCard>
 
