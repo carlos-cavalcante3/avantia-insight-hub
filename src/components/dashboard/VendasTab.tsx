@@ -422,6 +422,18 @@ export const VendasTab = ({ sector }: VendasTabProps) => {
   const clientes = useTopClientesPeriodo(sector, 15);
   const gestores = useVendasGestorPeriodo(sector);
   const refs2025 = useReferenciasVendasAno2025(sector);
+  const perfGestores = usePerformanceGestor();
+
+  /* Soma das Propostas Colocadas (universo completo — sem whitelist).
+   * Este é o NOVO indicador primário do dashboard. */
+  const propostasColocadasValor = useMemo(
+    () =>
+      (perfGestores.data ?? []).reduce(
+        (s, g) => s + Number(g.valor_propostas_ytd ?? 0),
+        0
+      ),
+    [perfGestores.data]
+  );
 
   if (kpis.error) return <ErrorState message={(kpis.error as Error).message} />;
 
