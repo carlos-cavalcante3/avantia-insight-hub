@@ -170,7 +170,7 @@ export const UnifiedFunnel = ({
     });
   }, [data]);
 
-  const maxValor = Math.max(1, ...etapas.map((e) => e.valor));
+  // (área visual proporcional removida — funil estilo "wedge")
   const totalNegocios = etapas.reduce((s, e) => s + e.qtd, 0);
 
   const drillRows: DrillRow[] = useMemo(() => {
