@@ -158,9 +158,9 @@ const BigValueCard = ({
               <button
                 type="button"
                 aria-label="Informação do cálculo"
-                className="inline-flex h-7 w-7 items-center justify-center rounded-full hover:bg-slate-100 transition-colors"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full hover:bg-muted transition-colors"
               >
-                <Info className="h-4 w-4 text-slate-500 hover:text-slate-700" />
+                <Info className="h-4 w-4 text-muted-foreground hover:text-foreground" />
               </button>
             </TooltipTrigger>
             <TooltipContent
@@ -168,12 +168,12 @@ const BigValueCard = ({
               align="end"
               collisionPadding={{ left: 16, right: 20, top: 8, bottom: 8 }}
               avoidCollisions
-              className="bg-slate-900 text-white border-slate-900 shadow-lg max-w-[280px] p-3"
+              className="bg-popover text-popover-foreground border-border shadow-lg max-w-[280px] p-3"
             >
               {infoTooltip === "ponderado" ? (
                 <PonderadoTooltipContent />
               ) : (
-                <p className="text-xs leading-snug text-white">{infoTooltip}</p>
+                <p className="text-xs leading-snug">{infoTooltip}</p>
               )}
             </TooltipContent>
           </Tooltip>
@@ -182,20 +182,21 @@ const BigValueCard = ({
     )}
 
     <div className="mb-4 pr-8">
-      <h3 className="text-lg font-semibold text-slate-800 leading-none">{title}</h3>
-      <p className="text-xs text-slate-500 mt-1">{subtitle}</p>
+      <h3 className="text-lg font-semibold text-foreground leading-none">{title}</h3>
+      <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
     </div>
 
     <div className="flex flex-col">
       {isLoading ? (
         <Skeleton className="h-10 w-2/3" />
       ) : (
-        <span className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">{value}</span>
+        <span className="text-3xl lg:text-4xl font-black text-white tracking-tight">{value}</span>
       )}
-      {qtd != null && !isLoading && <p className="text-xs text-slate-500 mt-1">{qtd} negócios em aberto</p>}
+      {qtd != null && !isLoading && <p className="text-xs text-muted-foreground mt-1">{qtd} negócios em aberto</p>}
     </div>
   </Card>
 );
+
 
 /* ---------------- Metas banner ---------------- */
 
@@ -267,8 +268,9 @@ const MetasBanner = ({
                 <p className="text-[10px] uppercase tracking-wider text-brand-blue/80 font-semibold">
                   Meta
                 </p>
-                <span className="text-xl lg:text-2xl font-black text-slate-800 block">
+                <span className="text-xl lg:text-2xl font-black text-foreground block">
                   {formatBRL(metas[s])}
+
                 </span>
               </div>
             )}
