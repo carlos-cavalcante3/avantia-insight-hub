@@ -24,6 +24,7 @@ import {
 } from "@/hooks/useDashboardData";
 import type { Sector } from "@/hooks/useVendasData";
 import { usePerformanceGestor } from "@/hooks/useGerentesData";
+import { isGerenteWhitelisted } from "@/lib/gerentes";
 
 const sectorToScope = (s: Sector): PipelineScope => {
   if (s === "publico") return "setor_publico";
