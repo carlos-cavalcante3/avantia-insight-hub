@@ -205,7 +205,6 @@ export const UnifiedFunnel = ({
           <div className="w-full max-w-2xl">
             {etapas.map((etapa, i) => {
               const widthPct = 100 - i * (60 / etapas.length); // afunila suavemente
-              const ratio = etapa.valor / maxValor;
               const isActive = stageOpen === etapa.nome;
               return (
                 <button
