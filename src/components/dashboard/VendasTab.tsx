@@ -26,6 +26,7 @@ import {
   METAS_ANUAIS,
   METAS_MENSAIS,
 } from "@/hooks/useVendasData";
+import { usePerformanceGestor } from "@/hooks/useGerentesData";
 import {
   DollarSign,
   ListChecks,
