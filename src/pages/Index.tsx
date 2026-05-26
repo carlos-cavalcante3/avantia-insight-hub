@@ -100,7 +100,7 @@ const Index = () => {
 
           {tab === "vendas" && <VendasTab sector={sector} />}
 
-          {tab === "pipeline" && <PipelineTab />}
+          {tab === "pipeline" && <PipelineTab sector={sector} />}
 
           {tab === "gerentes" && <GerentesTab />}
 
