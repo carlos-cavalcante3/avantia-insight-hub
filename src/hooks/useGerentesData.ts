@@ -257,6 +257,49 @@ export const useCurvaEvolucaoGestor = (gestorNome: string | null) =>
     staleTime: 5 * 60 * 1000,
   });
 
+/* --------- Curva GLOBAL (todos gerentes) ---------
+ * Agrega `mv_curva_evolucao_gestor` por (ano, mês) somando `qtd_oportunidades`.
+ * Para o gráfico global, exibimos APENAS a linha de Oportunidades Geradas. */
+export interface CurvaGlobalPonto {
+  ano: number;
+  mes: number;
+  label: string;
+  qtd_oportunidades: number;
+}
+
+export const useCurvaEvolucaoGlobal = () =>
+  useQuery({
+    queryKey: ["gold", "mv_curva_evolucao_global"],
+    queryFn: async (): Promise<CurvaGlobalPonto[]> =>
+      guard(async () => {
+        const { data, error } = await supabaseGold
+          .from("mv_curva_evolucao_gestor")
+          .select("ano, mes, qtd_oportunidades, gestor_nome");
+        if (error) throw error;
+        const { isGerenteWhitelisted } = await import("@/lib/gerentes");
+        const map = new Map<string, CurvaGlobalPonto>();
+        for (const r of (data ?? []) as Record<string, unknown>[]) {
+          if (!isGerenteWhitelisted(String(r.gestor_nome ?? ""))) continue;
+          const ano = Number(r.ano ?? 0);
+          const mes = Number(r.mes ?? 0);
+          if (!ano || !mes) continue;
+          const key = `${ano}-${String(mes).padStart(2, "0")}`;
+          const cur = map.get(key) ?? {
+            ano,
+            mes,
+            label: `${String(mes).padStart(2, "0")}/${String(ano).slice(-2)}`,
+            qtd_oportunidades: 0,
+          };
+          cur.qtd_oportunidades += Number(r.qtd_oportunidades ?? 0);
+          map.set(key, cur);
+        }
+        return Array.from(map.values()).sort((a, b) =>
+          a.ano !== b.ano ? a.ano - b.ano : a.mes - b.mes
+        );
+      }),
+    staleTime: 5 * 60 * 1000,
+  });
+
 /* --------- mv_carteira_clientes --------- */
 
 export interface CarteiraClienteRow {
