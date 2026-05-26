@@ -41,13 +41,14 @@ const Index = () => {
   const motivos = useMotivosPerda(pipelineScope);
   const perfGestores = usePerformanceGestor();
 
-  const gestoresList = useMemo(
-    () =>
-      Array.from(
-        new Set((perfGestores.data ?? []).map((g) => g.gestor_nome).filter(Boolean))
-      ).sort(),
-    [perfGestores.data]
-  );
+  const gestoresList = useMemo(() => {
+    const todos = Array.from(
+      new Set((perfGestores.data ?? []).map((g) => g.gestor_nome).filter(Boolean))
+    );
+    // Whitelist dos 10 gerentes oficiais (tolerante a acento/maiúsculas)
+    const { isGerenteWhitelisted } = require("@/lib/gerentes") as typeof import("@/lib/gerentes");
+    return todos.filter(isGerenteWhitelisted).sort();
+  }, [perfGestores.data]);
 
   useEffect(() => {
     if (!gestorSelecionado && gestoresList.length > 0) {
