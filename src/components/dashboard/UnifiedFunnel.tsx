@@ -244,9 +244,6 @@ export const UnifiedFunnel = ({
                 </button>
               );
             })}
-            <p className="text-[11px] text-muted-foreground text-center mt-2">
-              {Math.round((ratio0Hint(etapas) ?? 0))}
-            </p>
           </div>
 
           {stageOpen && (
