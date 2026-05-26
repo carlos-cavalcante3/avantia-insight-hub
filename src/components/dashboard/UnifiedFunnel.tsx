@@ -259,6 +259,3 @@ export const UnifiedFunnel = ({
     </ReportCard>
   );
 };
-
-// helper inline para evitar referência circular ao max
-const ratio0Hint = (_etapas: { valor: number }[]): number | null => null;
