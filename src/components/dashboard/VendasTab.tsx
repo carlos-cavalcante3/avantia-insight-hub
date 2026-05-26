@@ -386,24 +386,20 @@ const ValueBarChart = ({
                 }}
               />
               <RechartsTooltip
-                formatter={(v: number) => formatBRL(Number(v))}
-                contentStyle={{
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
+                cursor={false}
+                content={() => null}
+                wrapperStyle={{ display: "none" }}
               />
               <Bar
                 dataKey="valor"
-                fill="#f97316"
+                fill="hsl(var(--primary))"
                 radius={[0, 6, 6, 0]}
                 barSize={18}
               >
                 <LabelList
                   dataKey="valor"
                   position="right"
-                  fill="#0f172a"
+                  fill="hsl(var(--foreground))"
                   fontSize={12}
                   formatter={(v: number) => formatBRL(Number(v))}
                 />
