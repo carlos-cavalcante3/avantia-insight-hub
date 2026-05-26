@@ -12,35 +12,35 @@
 
 @layer base {
   :root {
-    /* Fundo geral Navy */
-    --background: 211 65% 15%;          /* #0E2841 */
-    --foreground: 0 0% 98%;
+    /* Ultra-dark navy quase preto */
+    --background: 215 60% 5%;           /* #050B14 */
+    --foreground: 0 0% 100%;
 
-    /* Painéis: navy elevado */
-    --card: 209 60% 22%;                /* #163859 */
-    --card-foreground: 0 0% 98%;
+    /* Painéis: slate-900 / #0F172A */
+    --card: 222 47% 11%;
+    --card-foreground: 0 0% 100%;
 
-    --popover: 209 60% 22%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 0 0% 100%;
 
-    --brand-orange: 26 87% 56%;         /* #F1842A */
+    --brand-orange: 26 87% 56%;
     --brand-orange-hover: 26 87% 50%;
-    --brand-blue: 215 39% 53%;          /* #567AB8 */
-    --brand-navy: 211 65% 15%;          /* #0E2841 */
-    --brand-navy-elevated: 209 60% 22%; /* #163859 */
-    --brand-near-white: 0 0% 98%;
+    --brand-blue: 215 39% 53%;
+    --brand-navy: 215 60% 5%;
+    --brand-navy-elevated: 222 47% 11%;
+    --brand-near-white: 0 0% 100%;
     --brand-charcoal: 220 9% 29%;
-    --brand-steel: 215 12% 65%;
-    --brand-silver: 215 12% 81%;
+    --brand-steel: 215 20% 75%;
+    --brand-silver: 215 20% 85%;
 
-    --primary: 26 87% 56%;              /* laranja Avantia */
+    --primary: 26 87% 56%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 215 39% 53%;           /* azul secundário */
+    --secondary: 215 39% 53%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 209 50% 28%;
-    --muted-foreground: 215 20% 78%;
+    --muted: 217 33% 17%;               /* slate-800 */
+    --muted-foreground: 215 20% 80%;    /* slate-300 */
 
     --accent: 215 39% 53%;
     --accent-foreground: 0 0% 100%;
@@ -54,50 +54,50 @@
     --success: 142 60% 45%;
     --success-foreground: 0 0% 100%;
 
-    --border: 210 35% 30%;
-    --input: 210 35% 30%;
+    --border: 217 33% 20%;              /* slate-800 */
+    --input: 217 33% 20%;
     --ring: 26 87% 56%;
 
     --radius: 0.625rem;
 
-    --sidebar-background: 211 65% 11%;
-    --sidebar-foreground: 0 0% 98%;
+    --sidebar-background: 222 47% 8%;
+    --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 26 87% 56%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 211 60% 17%;
+    --sidebar-accent: 222 47% 14%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 210 35% 22%;
+    --sidebar-border: 217 33% 18%;
     --sidebar-ring: 26 87% 56%;
 
-    --shadow-card: 0 1px 2px 0 hsl(0 0% 0% / 0.25), 0 6px 18px -4px hsl(0 0% 0% / 0.35);
-    --shadow-elevated: 0 4px 18px -2px hsl(0 0% 0% / 0.45);
+    --shadow-card: 0 1px 2px 0 hsl(0 0% 0% / 0.4), 0 8px 24px -6px hsl(0 0% 0% / 0.55);
+    --shadow-elevated: 0 6px 24px -2px hsl(0 0% 0% / 0.6);
     --gradient-orange: linear-gradient(135deg, hsl(26 87% 56%), hsl(26 90% 62%));
-    --gradient-navy: linear-gradient(180deg, hsl(211 65% 15%), hsl(211 65% 11%));
+    --gradient-navy: linear-gradient(180deg, hsl(215 60% 5%), hsl(222 47% 9%));
   }
 
   .dark {
-    /* mesmo dark institucional */
-    --background: 211 65% 15%;
-    --foreground: 0 0% 98%;
-    --card: 209 60% 22%;
-    --card-foreground: 0 0% 98%;
-    --popover: 209 60% 22%;
-    --popover-foreground: 0 0% 98%;
+    --background: 215 60% 5%;
+    --foreground: 0 0% 100%;
+    --card: 222 47% 11%;
+    --card-foreground: 0 0% 100%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 0 0% 100%;
     --primary: 26 87% 56%;
     --primary-foreground: 0 0% 100%;
     --secondary: 215 39% 53%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 209 50% 28%;
-    --muted-foreground: 215 20% 78%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 80%;
     --accent: 215 39% 53%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 56%;
     --destructive-foreground: 0 0% 100%;
-    --border: 210 35% 30%;
-    --input: 210 35% 30%;
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
     --ring: 26 87% 56%;
   }
 }
+
 
 @layer base {
   * { @apply border-border; }
@@ -117,4 +117,8 @@
   .shadow-elevated { box-shadow: var(--shadow-elevated); }
   .bg-gradient-orange { background-image: var(--gradient-orange); }
   .bg-gradient-navy { background-image: var(--gradient-navy); }
+  /* Neon sutil em barras / fills */
+  .neon-orange { filter: drop-shadow(0 0 8px rgba(241, 132, 42, 0.55)); }
+  .neon-blue   { filter: drop-shadow(0 0 8px rgba(86, 122, 184, 0.55)); }
 }
+

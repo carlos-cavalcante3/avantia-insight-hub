@@ -105,47 +105,62 @@ export const PipelineClientesUltimaMov = ({
         <ErrorState message="Nenhuma empresa com pipeline aberto." />
       ) : (
         <>
-          <div className="overflow-x-auto -mx-4 sm:-mx-5">
-            <table className="w-full text-sm">
+          <div className="w-full">
+            <table className="w-full text-sm table-fixed">
+              <colgroup>
+                <col />
+                <col style={{ width: "72px" }} />
+                <col style={{ width: "120px" }} />
+                <col style={{ width: "120px" }} />
+              </colgroup>
               <thead>
                 <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-                  <th className="px-4 sm:px-5 py-2 font-medium">Empresa</th>
-                  <th className="px-3 py-2 font-medium text-right">Negócios</th>
-                  <th className="px-3 py-2 font-medium text-right">Valor Estimado</th>
-                  <th className="px-4 sm:px-5 py-2 font-medium text-right">Última Movimentação</th>
+                  <th className="px-2 py-2 font-medium">Empresa</th>
+                  <th className="px-2 py-2 font-medium text-right">Neg.</th>
+                  <th className="px-2 py-2 font-medium text-right">Valor</th>
+                  <th className="px-2 py-2 font-medium text-right">Últ. Mov.</th>
                 </tr>
               </thead>
               <tbody>
-                {slice.map((row) => (
-                  <tr
-                    key={row.empresa}
-                    className="border-b border-border/60 hover:bg-muted/40 transition-colors"
-                  >
-                    <td className="px-4 sm:px-5 py-2.5 font-medium text-foreground truncate max-w-[280px]">
-                      {row.empresa}
-                    </td>
-                    <td className="px-3 py-2.5 text-right">
-                      <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full bg-secondary/10 text-secondary text-xs font-semibold">
-                        {formatNumber(row.total_abertos)}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-semibold text-foreground tabular-nums whitespace-nowrap">
-                      {formatBRL(row.valor_estimado)}
-                    </td>
-                    <td className="px-4 sm:px-5 py-2.5 text-right">
-                      <span
-                        className={`inline-flex items-center justify-center px-2 py-0.5 rounded-md border text-[11px] font-semibold whitespace-nowrap ${movBadge(
-                          row.ultima_movimentacao
-                        )}`}
-                      >
-                        {formatRelative(row.ultima_movimentacao)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {slice.map((row) => {
+                  const multi = Number(row.total_abertos) > 1;
+                  return (
+                    <tr
+                      key={row.empresa}
+                      title={
+                        multi
+                          ? `${row.empresa} — ${row.total_abertos} negócios em aberto · ${formatBRL(row.valor_estimado)} no total`
+                          : row.empresa
+                      }
+                      className="border-b border-border/60 hover:bg-muted/40 transition-colors"
+                    >
+                      <td className="px-2 py-2.5 font-medium text-foreground truncate">
+                        {row.empresa}
+                      </td>
+                      <td className="px-2 py-2.5 text-right">
+                        <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full bg-secondary/15 text-secondary text-xs font-semibold">
+                          {formatNumber(row.total_abertos)}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2.5 text-right font-semibold text-foreground tabular-nums whitespace-nowrap">
+                        {formatBRL(row.valor_estimado)}
+                      </td>
+                      <td className="px-2 py-2.5 text-right">
+                        <span
+                          className={`inline-flex items-center justify-center px-2 py-0.5 rounded-md border text-[11px] font-semibold whitespace-nowrap ${movBadge(
+                            row.ultima_movimentacao
+                          )}`}
+                        >
+                          {formatRelative(row.ultima_movimentacao)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+
 
           <div className="flex items-center justify-between mt-3 pt-2 border-t border-border">
             <p className="text-xs text-muted-foreground">

@@ -158,9 +158,9 @@ const BigValueCard = ({
               <button
                 type="button"
                 aria-label="Informação do cálculo"
-                className="inline-flex h-7 w-7 items-center justify-center rounded-full hover:bg-slate-100 transition-colors"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full hover:bg-muted transition-colors"
               >
-                <Info className="h-4 w-4 text-slate-500 hover:text-slate-700" />
+                <Info className="h-4 w-4 text-muted-foreground hover:text-foreground" />
               </button>
             </TooltipTrigger>
             <TooltipContent
@@ -168,12 +168,12 @@ const BigValueCard = ({
               align="end"
               collisionPadding={{ left: 16, right: 20, top: 8, bottom: 8 }}
               avoidCollisions
-              className="bg-slate-900 text-white border-slate-900 shadow-lg max-w-[280px] p-3"
+              className="bg-popover text-popover-foreground border-border shadow-lg max-w-[280px] p-3"
             >
               {infoTooltip === "ponderado" ? (
                 <PonderadoTooltipContent />
               ) : (
-                <p className="text-xs leading-snug text-white">{infoTooltip}</p>
+                <p className="text-xs leading-snug">{infoTooltip}</p>
               )}
             </TooltipContent>
           </Tooltip>
@@ -182,20 +182,21 @@ const BigValueCard = ({
     )}
 
     <div className="mb-4 pr-8">
-      <h3 className="text-lg font-semibold text-slate-800 leading-none">{title}</h3>
-      <p className="text-xs text-slate-500 mt-1">{subtitle}</p>
+      <h3 className="text-lg font-semibold text-foreground leading-none">{title}</h3>
+      <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
     </div>
 
     <div className="flex flex-col">
       {isLoading ? (
         <Skeleton className="h-10 w-2/3" />
       ) : (
-        <span className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">{value}</span>
+        <span className="text-3xl lg:text-4xl font-black text-white tracking-tight">{value}</span>
       )}
-      {qtd != null && !isLoading && <p className="text-xs text-slate-500 mt-1">{qtd} negócios em aberto</p>}
+      {qtd != null && !isLoading && <p className="text-xs text-muted-foreground mt-1">{qtd} negócios em aberto</p>}
     </div>
   </Card>
 );
+
 
 /* ---------------- Metas banner ---------------- */
 
@@ -267,8 +268,9 @@ const MetasBanner = ({
                 <p className="text-[10px] uppercase tracking-wider text-brand-blue/80 font-semibold">
                   Meta
                 </p>
-                <span className="text-xl lg:text-2xl font-black text-slate-800 block">
+                <span className="text-xl lg:text-2xl font-black text-foreground block">
                   {formatBRL(metas[s])}
+
                 </span>
               </div>
             )}
@@ -344,74 +346,71 @@ const ValueBarChart = ({
         {emptyLabel}
       </div>
     );
-  const chartHeight = Math.max(420, data.length * 48 + 64);
+  const chartHeight = Math.max(420, data.length * 44 + 56);
+  // Largura dinâmica do YAxis: o suficiente para o maior nome, sem deixar gap gigante.
+  const maxLen = data.reduce((m, d) => Math.max(m, (d.label ?? "").length), 0);
+  const yAxisWidth = Math.min(180, Math.max(96, maxLen * 6.5));
   return (
     <div className="w-full" style={{ height: chartHeight }}>
-      <div className="flex h-full w-full items-start justify-start overflow-x-auto">
-        <div className="h-full w-full min-w-[560px] max-w-[820px] text-left">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={data}
-              layout="vertical"
-              margin={{ top: 10, right: 132, left: 0, bottom: 10 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-              <XAxis type="number" hide />
-              <YAxis
-                type="category"
-                dataKey="label"
-                width={210}
-                interval={0}
-                tick={({ x, y, payload }) => {
-                  const full = String(payload.value ?? "");
-                  const lines = wrapAxisLabel(full);
-                  return (
-                    <g transform={`translate(${x},${y})`}>
-                      <title>{full}</title>
-                      {lines.map((line, index) => (
-                        <text
-                          key={`${line}-${index}`}
-                          x={-8}
-                          y={(index - (lines.length - 1) / 2) * 13}
-                          dy={4}
-                          textAnchor="end"
-                          fill="#0f172a"
-                          fontSize={11}
-                          fontWeight={600}
-                        >
-                          {line}
-                        </text>
-                      ))}
-                    </g>
-                  );
-                }}
-              />
-              <RechartsTooltip
-                cursor={false}
-                content={() => null}
-                wrapperStyle={{ display: "none" }}
-              />
-              <Bar
-                dataKey="valor"
-                fill="hsl(var(--primary))"
-                radius={[0, 6, 6, 0]}
-                barSize={18}
-              >
-                <LabelList
-                  dataKey="valor"
-                  position="right"
-                  fill="hsl(var(--foreground))"
-                  fontSize={12}
-                  formatter={(v: number) => formatBRL(Number(v))}
-                />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={data}
+          layout="vertical"
+          margin={{ top: 8, right: 96, left: 4, bottom: 8 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+          <XAxis type="number" hide />
+          <YAxis
+            type="category"
+            dataKey="label"
+            width={yAxisWidth}
+            interval={0}
+            tick={({ x, y, payload }) => {
+              const full = String(payload.value ?? "");
+              const lines = wrapAxisLabel(full, 22, 2);
+              return (
+                <g transform={`translate(${x},${y})`}>
+                  <title>{full}</title>
+                  {lines.map((line, index) => (
+                    <text
+                      key={`${line}-${index}`}
+                      x={-6}
+                      y={(index - (lines.length - 1) / 2) * 13}
+                      dy={4}
+                      textAnchor="end"
+                      fill="hsl(var(--foreground))"
+                      fontSize={11}
+                      fontWeight={600}
+                    >
+                      {line}
+                    </text>
+                  ))}
+                </g>
+              );
+            }}
+          />
+          <RechartsTooltip cursor={false} content={() => null} wrapperStyle={{ display: "none" }} />
+          <Bar
+            dataKey="valor"
+            fill="hsl(var(--primary))"
+            radius={[0, 6, 6, 0]}
+            barSize={18}
+            className="neon-orange"
+          >
+            <LabelList
+              dataKey="valor"
+              position="right"
+              fill="hsl(var(--foreground))"
+              fontSize={12}
+              formatter={(v: number) => formatBRL(Number(v))}
+            />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 };
+
 
 /* ---------------- Page ---------------- */
 
