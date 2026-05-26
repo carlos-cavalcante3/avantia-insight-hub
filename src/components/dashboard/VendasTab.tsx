@@ -346,74 +346,71 @@ const ValueBarChart = ({
         {emptyLabel}
       </div>
     );
-  const chartHeight = Math.max(420, data.length * 48 + 64);
+  const chartHeight = Math.max(420, data.length * 44 + 56);
+  // Largura dinâmica do YAxis: o suficiente para o maior nome, sem deixar gap gigante.
+  const maxLen = data.reduce((m, d) => Math.max(m, (d.label ?? "").length), 0);
+  const yAxisWidth = Math.min(180, Math.max(96, maxLen * 6.5));
   return (
     <div className="w-full" style={{ height: chartHeight }}>
-      <div className="flex h-full w-full items-start justify-start overflow-x-auto">
-        <div className="h-full w-full min-w-[560px] max-w-[820px] text-left">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={data}
-              layout="vertical"
-              margin={{ top: 10, right: 132, left: 0, bottom: 10 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-              <XAxis type="number" hide />
-              <YAxis
-                type="category"
-                dataKey="label"
-                width={210}
-                interval={0}
-                tick={({ x, y, payload }) => {
-                  const full = String(payload.value ?? "");
-                  const lines = wrapAxisLabel(full);
-                  return (
-                    <g transform={`translate(${x},${y})`}>
-                      <title>{full}</title>
-                      {lines.map((line, index) => (
-                        <text
-                          key={`${line}-${index}`}
-                          x={-8}
-                          y={(index - (lines.length - 1) / 2) * 13}
-                          dy={4}
-                          textAnchor="end"
-                          fill="#0f172a"
-                          fontSize={11}
-                          fontWeight={600}
-                        >
-                          {line}
-                        </text>
-                      ))}
-                    </g>
-                  );
-                }}
-              />
-              <RechartsTooltip
-                cursor={false}
-                content={() => null}
-                wrapperStyle={{ display: "none" }}
-              />
-              <Bar
-                dataKey="valor"
-                fill="hsl(var(--primary))"
-                radius={[0, 6, 6, 0]}
-                barSize={18}
-              >
-                <LabelList
-                  dataKey="valor"
-                  position="right"
-                  fill="hsl(var(--foreground))"
-                  fontSize={12}
-                  formatter={(v: number) => formatBRL(Number(v))}
-                />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={data}
+          layout="vertical"
+          margin={{ top: 8, right: 96, left: 4, bottom: 8 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+          <XAxis type="number" hide />
+          <YAxis
+            type="category"
+            dataKey="label"
+            width={yAxisWidth}
+            interval={0}
+            tick={({ x, y, payload }) => {
+              const full = String(payload.value ?? "");
+              const lines = wrapAxisLabel(full, 22, 2);
+              return (
+                <g transform={`translate(${x},${y})`}>
+                  <title>{full}</title>
+                  {lines.map((line, index) => (
+                    <text
+                      key={`${line}-${index}`}
+                      x={-6}
+                      y={(index - (lines.length - 1) / 2) * 13}
+                      dy={4}
+                      textAnchor="end"
+                      fill="hsl(var(--foreground))"
+                      fontSize={11}
+                      fontWeight={600}
+                    >
+                      {line}
+                    </text>
+                  ))}
+                </g>
+              );
+            }}
+          />
+          <RechartsTooltip cursor={false} content={() => null} wrapperStyle={{ display: "none" }} />
+          <Bar
+            dataKey="valor"
+            fill="hsl(var(--primary))"
+            radius={[0, 6, 6, 0]}
+            barSize={18}
+            className="neon-orange"
+          >
+            <LabelList
+              dataKey="valor"
+              position="right"
+              fill="hsl(var(--foreground))"
+              fontSize={12}
+              formatter={(v: number) => formatBRL(Number(v))}
+            />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 };
+
 
 /* ---------------- Page ---------------- */
 
