@@ -498,7 +498,26 @@ export const AnaliseGerentesTab = ({ gestor }: AnaliseGerentesTabProps) => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(carteira.data ?? []).map((row, idx) => {
+                {[...(carteira.data ?? [])]
+                  .sort((a, b) => {
+                    const va = Number(a?.valor_pipeline ?? 0);
+                    const vb = Number(b?.valor_pipeline ?? 0);
+                    // 1) Maior pipeline financeiro primeiro
+                    if (va > 0 || vb > 0) {
+                      if (va !== vb) return vb - va;
+                    }
+                    // 2) Entre zerados: data de movimentação mais recente
+                    const da = a?.ultima_movimentacao
+                      ? new Date(a.ultima_movimentacao).getTime()
+                      : -Infinity;
+                    const db = b?.ultima_movimentacao
+                      ? new Date(b.ultima_movimentacao).getTime()
+                      : -Infinity;
+                    if (da !== db) return db - da;
+                    // 3) Zerados sem movimentação por último: já encaixa pela regra acima
+                    return 0;
+                  })
+                  .map((row, idx) => {
                   const valorPipe = Number(row?.valor_pipeline ?? 0);
                   const pipeOk = valorPipe > 0;
                   const dias = diasDesde(row?.ultima_movimentacao ?? null);
