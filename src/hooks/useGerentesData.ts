@@ -277,7 +277,6 @@ export const useCurvaEvolucaoGlobal = () =>
           .from("mv_curva_evolucao_gestor")
           .select("ano, mes, qtd_oportunidades, gestor_nome");
         if (error) throw error;
-        const { isGerenteWhitelisted } = await import("@/lib/gerentes");
         const map = new Map<string, CurvaGlobalPonto>();
         for (const r of (data ?? []) as Record<string, unknown>[]) {
           if (!isGerenteWhitelisted(String(r.gestor_nome ?? ""))) continue;
