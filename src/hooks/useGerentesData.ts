@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabaseGold, isGoldConfigured } from "@/lib/supabaseGold";
+import { isGerenteWhitelisted } from "@/lib/gerentes";
 
 const guard = async <T>(fn: () => Promise<T>): Promise<T> => {
   if (!isGoldConfigured) throw new Error("Gold não configurado.");
