@@ -206,8 +206,8 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
                   {formatBRL(vendasYtdValor)}
                 </p>
                 <p className="mt-1 text-[11px] text-slate-400">
-                  {gestorPerf?.negocios_ganhos_ytd != null
-                    ? `${formatNumber(gestorPerf.negocios_ganhos_ytd)} negócios fechados`
+                  {gestorVendas?.qtd_ytd != null
+                    ? `${formatNumber(gestorVendas.qtd_ytd)} negócios fechados`
                     : "—"}
                 </p>
               </>

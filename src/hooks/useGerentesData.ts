@@ -259,11 +259,12 @@ export const useTopClientesGestor = (gestorNome: string | null, selectedMonth?: 
         if (error) throw error;
         const currentYear = new Date().getFullYear();
         const month = selectedMonthOrUndefined(selectedMonth) ?? new Date().getMonth() + 1;
+        const rows = ((data ?? []) as Record<string, unknown>[]).filter(
+          (r) => r.gestor_nome === gestorNome && Number(r.ano) === currentYear
+        );
         const agg = new Map<string, TopClienteGestor>();
-        for (const r of (data ?? []) as Record<string, unknown>[]) {
-          if (Number(r.ano ?? currentYear) !== currentYear) continue;
+        for (const r of rows) {
           const rowMonth = Number(r.mes ?? 0);
-          if (rowMonth < 1 || rowMonth > month) continue;
 
           const empresaNome = textFromRow(r, [
               "empresa_nome",
@@ -282,7 +283,7 @@ export const useTopClientesGestor = (gestorNome: string | null, selectedMonth?: 
             valor_mtd: 0,
           };
           const valor = Number(r?.valor ?? r?.valor_ganho ?? r?.valor_total ?? 0);
-          cur.valor_ytd += valor;
+          if (rowMonth <= month) cur.valor_ytd += valor;
           if (rowMonth === month) cur.valor_mtd += valor;
           agg.set(empresaNome, cur);
         }

@@ -194,6 +194,7 @@ const selectedMonthOrCurrent = (selectedMonth?: number) => {
 const applySelectedMonthToKpis = (
   base: KpisAggregated,
   rows: Record<string, unknown>[],
+  oportData: Record<string, unknown>[],
   sector: Sector,
   selectedMonth?: number
 ): KpisAggregated => {
@@ -202,14 +203,22 @@ const applySelectedMonthToKpis = (
   const monthRows = rows.filter(
     (r) => Number(r.ano) === year && Number(r.mes) === month && matchSector(String(r.pipeline_nome), sector)
   );
-  if (!monthRows.length) return base;
   const valor_mtd = monthRows.reduce((sum, r) => sum + Number(r.receita_total ?? 0), 0);
   const qtd_mtd = monthRows.reduce((sum, r) => sum + Number(r.qtd_negocios ?? 0), 0);
+  const oport_mtd = oportData
+    .filter(
+      (r) =>
+        Number(r.ano) === year &&
+        Number(r.mes) === month &&
+        matchSector(String(r.pipeline_nome), sector)
+    )
+    .reduce((sum, r) => sum + Number(r.qtd_geradas ?? 0), 0);
   return {
     ...base,
     valor_mtd,
     qtd_mtd,
     ticket_mtd: qtd_mtd ? valor_mtd / qtd_mtd : 0,
+    win_rate_mtd: oport_mtd > 0 ? (qtd_mtd / oport_mtd) * 100 : 0,
   };
 };
 
@@ -218,16 +227,23 @@ export const useKpisVendas = (sector: Sector = "avantia", selectedMonth?: number
     queryKey: ["gold", "vendas_kpis_v8", sector, selectedMonthOrCurrent(selectedMonth)],
     queryFn: async (): Promise<KpisAggregated> =>
       guard(async () => {
-        const [{ data, error }, { data: monthlyData, error: monthlyError }] = await Promise.all([
+        const [
+          { data, error },
+          { data: monthlyData, error: monthlyError },
+          { data: oportData, error: oportError },
+        ] = await Promise.all([
           supabaseGold.from("mv_kpis_gerais").select("*"),
           supabaseGold.from("mv_vendas_mensais_yoy").select("*"),
+          supabaseGold.from("mv_curva_conversao_mensal").select("*"),
         ]);
         if (error) throw error;
         if (monthlyError) throw monthlyError;
+        if (oportError) throw oportError;
         const rows = (data ?? []) as Record<string, unknown>[];
         return applySelectedMonthToKpis(
           rowToKpisAggregated(findKpiRowForSector(rows, sector)),
           (monthlyData ?? []) as Record<string, unknown>[],
+          (oportData ?? []) as Record<string, unknown>[],
           sector,
           selectedMonth
         );
@@ -241,19 +257,26 @@ export const useKpisPorSetor = (selectedMonth?: number) =>
     queryKey: ["gold", "vendas_kpis_setor_v8", selectedMonthOrCurrent(selectedMonth)],
     queryFn: async (): Promise<Record<Sector, KpisAggregated>> =>
       guard(async () => {
-        const [{ data, error }, { data: monthlyData, error: monthlyError }] = await Promise.all([
+        const [
+          { data, error },
+          { data: monthlyData, error: monthlyError },
+          { data: oportData, error: oportError },
+        ] = await Promise.all([
           supabaseGold.from("mv_kpis_gerais").select("*"),
           supabaseGold.from("mv_vendas_mensais_yoy").select("*"),
+          supabaseGold.from("mv_curva_conversao_mensal").select("*"),
         ]);
         if (error) throw error;
         if (monthlyError) throw monthlyError;
+        if (oportError) throw oportError;
         const rows = (data ?? []) as Record<string, unknown>[];
         const monthlyRows = (monthlyData ?? []) as Record<string, unknown>[];
+        const oportRows = (oportData ?? []) as Record<string, unknown>[];
         return {
-          avantia: applySelectedMonthToKpis(rowToKpisAggregated(findKpiRowForSector(rows, "avantia")), monthlyRows, "avantia", selectedMonth),
-          publico: applySelectedMonthToKpis(rowToKpisAggregated(findKpiRowForSector(rows, "publico")), monthlyRows, "publico", selectedMonth),
-          privado: applySelectedMonthToKpis(rowToKpisAggregated(findKpiRowForSector(rows, "privado")), monthlyRows, "privado", selectedMonth),
-          audio_video: applySelectedMonthToKpis(rowToKpisAggregated(findKpiRowForSector(rows, "audio_video")), monthlyRows, "audio_video", selectedMonth),
+          avantia: applySelectedMonthToKpis(rowToKpisAggregated(findKpiRowForSector(rows, "avantia")), monthlyRows, oportRows, "avantia", selectedMonth),
+          publico: applySelectedMonthToKpis(rowToKpisAggregated(findKpiRowForSector(rows, "publico")), monthlyRows, oportRows, "publico", selectedMonth),
+          privado: applySelectedMonthToKpis(rowToKpisAggregated(findKpiRowForSector(rows, "privado")), monthlyRows, oportRows, "privado", selectedMonth),
+          audio_video: applySelectedMonthToKpis(rowToKpisAggregated(findKpiRowForSector(rows, "audio_video")), monthlyRows, oportRows, "audio_video", selectedMonth),
         };
       }),
     staleTime: 5 * 60 * 1000,
@@ -395,6 +418,8 @@ export interface GestorPeriodo {
   gestor_nome: string;
   valor_ytd: number;
   valor_mtd: number;
+  qtd_ytd: number;
+  qtd_mtd: number;
   detalhes_vendas_ytd?: VendaDetalhe[];
   detalhes_vendas_mtd?: VendaDetalhe[];
 }
@@ -443,6 +468,8 @@ export const useVendasGestorPeriodo = (sector: Sector = "avantia", selectedMonth
             gestor_nome: key,
             valor_ytd: 0,
             valor_mtd: 0,
+            qtd_ytd: 0,
+            qtd_mtd: 0,
             detalhes_vendas_ytd: [],
             detalhes_vendas_mtd: [],
           };
@@ -457,10 +484,12 @@ export const useVendasGestorPeriodo = (sector: Sector = "avantia", selectedMonth
 
           if (rowMonth > 0 && rowMonth <= month) {
             cur.valor_ytd += valor;
+            cur.qtd_ytd += Number(r.qtd_negocios ?? 0);
             cur.detalhes_vendas_ytd?.push(...detalhesLinha);
           }
           if (rowMonth === month) {
             cur.valor_mtd += valor;
+            cur.qtd_mtd += Number(r.qtd_negocios ?? 0);
             cur.detalhes_vendas_mtd?.push(...detalhesLinha);
           }
           agg.set(key, cur);
