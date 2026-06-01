@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabaseGold, isGoldConfigured } from "@/lib/supabaseGold";
 import { isPipelineNomeAvantiaGeral } from "@/lib/pipelineAvantiaGeral";
+import { isMotivoPerdaRow2026Plus } from "@/lib/dateFilters";
+import { parseNegociosDetalhados } from "@/lib/parseJsonArray";
 import type {
   DesempenhoGestor,
   PipelineCliente,
@@ -57,6 +59,8 @@ export interface NegocioEstagnado {
   negocio: string;
   empresa: string;
   gestor: string;
+  gestor_nome?: string;
+  gerente?: string;
   dias_parado: number;
   valor: number;
   fase: string;
@@ -114,6 +118,15 @@ export interface UltimaMovEmpresa {
   total_abertos: number;
   valor_estimado: number;
   ultima_movimentacao: string | null;
+  negocios_detalhados?: NegocioDetalhado[];
+}
+
+export interface NegocioDetalhado {
+  nome: string;
+  cliente: string;
+  gerente: string;
+  valor: number;
+  etapa_nome: string;
 }
 
 export interface VendaAnoSamePeriod {
@@ -143,6 +156,35 @@ const guard = async <T>(fn: () => Promise<T>): Promise<T> => {
   return fn();
 };
 
+export interface NotificacaoRecente {
+  id: string;
+  gestor_nome: string;
+  cliente_nome: string;
+  valor: number;
+  created_at: string | null;
+}
+
+export const useNotificacoesRecentes = (limit = 8) =>
+  useQuery({
+    queryKey: ["gold", "mv_notificacoes_recentes", limit],
+    queryFn: async (): Promise<NotificacaoRecente[]> =>
+      guard(async () => {
+        const { data, error } = await supabaseGold
+          .from("mv_notificacoes_recentes")
+          .select("*")
+          .limit(limit);
+        if (error) throw error;
+        return ((data ?? []) as Record<string, unknown>[]).map((r, index) => ({
+          id: String(r.id ?? `${r.gestor_nome ?? "gestor"}-${r.cliente_nome ?? "cliente"}-${index}`),
+          gestor_nome: String(r.gestor_nome ?? "Gerente"),
+          cliente_nome: String(r.cliente_nome ?? r.empresa_nome ?? "cliente"),
+          valor: Number(r.valor ?? r.valor_ganho ?? r.valor_total ?? 0),
+          created_at: (r.created_at as string | null) ?? (r.data_evento as string | null) ?? null,
+        }));
+      }),
+    staleTime: 60 * 1000,
+  });
+
 const MES_LABEL = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 /** Colunas solicitadas para mv_vendas_mensais_yoy (evolução mensal + agregações). */
@@ -160,6 +202,7 @@ export interface RowFunil {
   valor_total: number | null;
   valor_exibicao?: number | null;
   valor_soma_ativa?: number | null;
+  negocios_detalhados?: unknown;
 }
 
 export interface FunilEtapa extends PipelineFase {
@@ -168,6 +211,7 @@ export interface FunilEtapa extends PipelineFase {
   valor_total: number;
   valor_exibicao: number;
   valor_soma_ativa: number;
+  negocios_detalhados?: unknown;
 }
 
 /** Resultado de `usePipelineFunil`: etapas agregadas + total executivo (M) no cabeçalho. */
@@ -347,7 +391,7 @@ export const useKPIsGerais = (pipelineScope: PipelineScope = "avantia") =>
 /* ============================================================
  * 2) Negócios Estagnados (mv_negocios_estagnados)
  *    Colunas: id, negocio_nome, empresa_nome, valor, expected_close_date, dias_sem_interacao
- *    Não há gestor na view → exibimos "—".
+ *    Gestor: gestor_nome ou gerente (view atualizada).
  * ============================================================ */
 
 export const useNegociosEstagnados = (
@@ -363,7 +407,7 @@ export const useNegociosEstagnados = (
           supabaseGold
             .from("mv_negocios_estagnados")
             .select("*")
-            .order("dias_sem_interacao", { ascending: false })
+            .order("dias_sem_interacao", { ascending: true })
             .limit(500),
           pipelineScope
         );
@@ -374,7 +418,9 @@ export const useNegociosEstagnados = (
             pipeline_nome: String(r.pipeline_nome ?? ""),
             negocio: String(r.negocio_nome ?? "—"),
             empresa: String(r.empresa_nome ?? ""),
-            gestor: "—",
+            gestor: String(r.gestor_nome ?? r.gerente ?? "Não Atribuído"),
+            gestor_nome: String(r.gestor_nome ?? r.gerente ?? ""),
+            gerente: String(r.gerente ?? r.gestor_nome ?? ""),
             dias_parado: Number(r.dias_sem_interacao ?? 0),
             valor: Number(r.valor ?? 0),
             fase: "",
@@ -575,7 +621,7 @@ export const usePipelineClientesUltimaMov = (
         const { data, error } = await applyPipelineScope(
           supabaseGold
             .from("mv_negocios_estagnados")
-            .select("pipeline_nome,empresa_nome,valor,dias_sem_interacao")
+            .select("*")
             .limit(5000),
           pipelineScope
         );
@@ -583,7 +629,13 @@ export const usePipelineClientesUltimaMov = (
 
         const agg = new Map<
           string,
-          { abertos: number; valor: number; minDias: number; pipelines: Set<string> }
+          {
+            abertos: number;
+            valor: number;
+            minDias: number;
+            pipelines: Set<string>;
+            negocios: NegocioDetalhado[];
+          }
         >();
         for (const r of (data ?? []) as Record<string, unknown>[]) {
           const empresa = String(r.empresa_nome ?? "Empresa não classificada");
@@ -595,11 +647,34 @@ export const usePipelineClientesUltimaMov = (
             valor: 0,
             minDias: Infinity,
             pipelines: new Set<string>(),
+            negocios: [],
           };
+          const detalhes = parseNegociosDetalhados(r.negocios_detalhados);
           cur.abertos += 1;
           cur.valor += valor;
           if (dias < cur.minDias) cur.minDias = dias;
           if (pipelineNome) cur.pipelines.add(pipelineNome);
+          cur.negocios.push(
+            ...(detalhes.length
+              ? detalhes.map((d) => ({
+                  nome: String(d.negocio_nome ?? d.nome_negocio ?? d.negocio ?? d.titulo ?? empresa),
+                  cliente: String(d.cliente_nome ?? d.empresa_nome ?? d.cliente ?? d.empresa ?? empresa),
+                  gerente: String(
+                    d.gerente ?? d.gerente_nome ?? d.gestor_nome ?? d.gestor ?? "—"
+                  ),
+                  valor: Number(d.valor ?? d.valor_total ?? d.valor_estimado ?? 0),
+                  etapa_nome: String(d.etapa_nome ?? d.fase ?? d.stage_name ?? d.etapa ?? ""),
+                }))
+              : [
+                  {
+                    nome: String(r.negocio_nome ?? r.nome_negocio ?? r.negocio ?? empresa),
+                    cliente: empresa,
+                    gerente: String(r.gestor_nome ?? r.gerente_nome ?? r.gerente ?? "—"),
+                    valor,
+                    etapa_nome: String(r.etapa_nome ?? r.fase ?? r.stage_name ?? r.etapa ?? ""),
+                  },
+                ])
+          );
           agg.set(empresa, cur);
         }
 
@@ -610,6 +685,7 @@ export const usePipelineClientesUltimaMov = (
             pipeline_nome: Array.from(v.pipelines).join(" | "),
             total_abertos: v.abertos,
             valor_estimado: v.valor,
+            negocios_detalhados: v.negocios,
             ultima_movimentacao:
               v.minDias === Infinity
                 ? null
@@ -683,6 +759,7 @@ export const usePipelineFunil = (
             ordem: number;
             qtd: number;
             valorTotal: number;
+            negocios: Record<string, unknown>[];
           }
         >();
         for (const r of filtered) {
@@ -697,9 +774,11 @@ export const usePipelineFunil = (
             ordem,
             qtd: 0,
             valorTotal: 0,
+            negocios: [],
           };
           cur.qtd += Number(r.total_negocios ?? 0);
           cur.valorTotal += Number(r.valor_total ?? 0);
+          cur.negocios.push(...parseNegociosDetalhados(r.negocios_detalhados));
           agg.set(key, cur);
         }
 
@@ -718,6 +797,7 @@ export const usePipelineFunil = (
               valor_total: v,
               valor_exibicao: v,
               valor_soma_ativa: v,
+              negocios_detalhados: r.negocios,
             };
           });
         return {
@@ -811,11 +891,11 @@ export const useMotivosPerda = (pipelineScope: PipelineScope = "avantia") =>
         if (error) throw error;
         const allRows = (data ?? []) as Record<string, unknown>[];
         const filtered = allRows.filter((r) => {
+          if (!isMotivoPerdaRow2026Plus(r)) return false;
           const pipe = normalize(String(r.pipeline_nome ?? ""));
           if (pipelineScope === "setor_privado") return pipe.includes("privado");
           if (pipelineScope === "setor_publico")
             return pipe.includes("publico") || pipe.includes("public") || pipe.includes("eletric");
-          // avantia / consolidado: aceita qualquer linha (geral, avantia, ou pipelines individuais).
           return true;
         });
         const agg = new Map<string, { qtd: number; valor: number }>();

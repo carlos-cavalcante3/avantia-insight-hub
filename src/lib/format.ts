@@ -9,10 +9,13 @@ const nf2 = new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 2,
 });
 
-const nf1 = new Intl.NumberFormat("pt-BR", {
+const nf1 = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
 });
+
+const compactSuffix = (value: number, suffix: "K" | "M") =>
+  `${nf1.format(value).replace(/\.0$/, "")}${suffix}`;
 
 /**
  * Máscara global "Avantia": sem cifrão.
@@ -25,8 +28,8 @@ export const formatBRL = (value: number): string => {
   if (!Number.isFinite(v)) return "0";
   const abs = Math.abs(v);
   const sign = v < 0 ? "-" : "";
-  if (abs >= 1_000_000) return `${sign}${nf1.format(abs / 1_000_000)}M`;
-  if (abs >= 1_000) return `${sign}${nf1.format(abs / 1_000)}K`;
+  if (abs >= 1_000_000) return `${sign}${compactSuffix(abs / 1_000_000, "M")}`;
+  if (abs >= 1_000) return `${sign}${compactSuffix(abs / 1_000, "K")}`;
   return `${sign}${nf2.format(abs)}`;
 };
 

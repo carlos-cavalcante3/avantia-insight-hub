@@ -4,6 +4,8 @@ import { ReportCard } from "./ReportCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "./ErrorState";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatBRL, formatNumber } from "@/lib/format";
 import type { UltimaMovEmpresa } from "@/hooks/useDashboardData";
 
@@ -27,11 +29,42 @@ const formatRelative = (iso: string | null): string => {
 
 const movBadge = (iso: string | null): string => {
   const d = diasDesde(iso) ?? 999;
-  if (d <= 7) return "bg-success/10 text-success border-success/30";
+  if (d <= 15) return "text-emerald-400 bg-emerald-400/10 border border-emerald-400/20";
   if (d <= 30) return "bg-primary/10 text-primary border-primary/20";
   if (d <= 60) return "bg-warning/15 text-warning border-warning/30";
   return "bg-destructive/15 text-destructive border-destructive/30";
 };
+
+const NegocioPopoverList = ({
+  empresa,
+  items,
+}: {
+  empresa: string;
+  items: NonNullable<UltimaMovEmpresa["negocios_detalhados"]>;
+}) => (
+  <div className="w-72">
+    <p className="text-xs font-semibold text-slate-100 mb-1 truncate">{empresa}</p>
+    <p className="text-[10px] text-slate-400 mb-2">{items.length} negócios em aberto</p>
+    <ScrollArea className="h-72 w-full rounded-md">
+      <div className="space-y-2 pr-3">
+        {items.map((item, index) => (
+          <div
+            key={`${item.nome}-${index}`}
+            className="space-y-0.5 border-b border-slate-700/60 pb-2 last:border-0 last:pb-0"
+          >
+            <p className="font-medium text-slate-100 leading-snug text-xs">
+              {item.nome || "Oportunidade"}
+            </p>
+            <p className="text-slate-300 text-xs">{item.gerente || "—"}</p>
+            <p className="font-semibold text-blue-400 tabular-nums text-xs">
+              {formatBRL(Number(item.valor ?? 0))}
+            </p>
+          </div>
+        ))}
+      </div>
+    </ScrollArea>
+  </div>
+);
 
 interface Props {
   data?: UltimaMovEmpresa[];
@@ -62,10 +95,9 @@ export const PipelineClientesUltimaMov = ({
       return pipeline.includes(setorNorm);
     });
   }, [data, setorSelecionado]);
-  const dadosFiltradosDoSetor = dadosFiltrados;
   const sorted = useMemo(
-    () => [...dadosFiltradosDoSetor].sort((a, b) => b.valor_estimado - a.valor_estimado),
-    [dadosFiltradosDoSetor]
+    () => [...dadosFiltrados].sort((a, b) => b.valor_estimado - a.valor_estimado),
+    [dadosFiltrados]
   );
   useEffect(() => {
     setPage(0);
@@ -87,8 +119,8 @@ export const PipelineClientesUltimaMov = ({
       }
       action={
         !isLoading ? (
-          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-border bg-muted/40 px-2 text-xs font-semibold text-foreground">
-            {dadosFiltradosDoSetor.length}
+          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-slate-700 bg-slate-800/60 px-2 text-xs font-semibold text-slate-100">
+            {dadosFiltrados.length}
           </span>
         ) : undefined
       }
@@ -96,7 +128,7 @@ export const PipelineClientesUltimaMov = ({
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: PAGE_SIZE }).map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full" />
+            <Skeleton key={i} className="h-10 w-full bg-slate-800" />
           ))}
         </div>
       ) : error ? (
@@ -114,7 +146,7 @@ export const PipelineClientesUltimaMov = ({
                 <col style={{ width: "120px" }} />
               </colgroup>
               <thead>
-                <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+                <tr className="border-b border-slate-800 text-left text-[11px] uppercase tracking-wider text-slate-400">
                   <th className="px-2 py-2 font-medium">Empresa</th>
                   <th className="px-2 py-2 font-medium text-right">Neg.</th>
                   <th className="px-2 py-2 font-medium text-right">Valor</th>
@@ -123,27 +155,43 @@ export const PipelineClientesUltimaMov = ({
               </thead>
               <tbody>
                 {slice.map((row) => {
-                  const multi = Number(row.total_abertos) > 1;
+                  const negocios = row.negocios_detalhados ?? [];
+                  const hasPopover = negocios.length > 0;
                   return (
                     <tr
                       key={row.empresa}
-                      title={
-                        multi
-                          ? `${row.empresa} — ${row.total_abertos} negócios em aberto · ${formatBRL(row.valor_estimado)} no total`
-                          : row.empresa
-                      }
-                      className="border-b border-border/60 hover:bg-muted/40 transition-colors"
+                      className="border-b border-slate-800/60 hover:bg-slate-800/40 transition-colors"
                     >
-                      <td className="px-2 py-2.5 font-medium text-foreground truncate">
+                      <td className="px-2 py-2.5 font-medium text-slate-100 truncate">
                         {row.empresa}
                       </td>
                       <td className="px-2 py-2.5 text-right">
-                        <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full bg-secondary/15 text-secondary text-xs font-semibold">
+                        <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 text-xs font-semibold">
                           {formatNumber(row.total_abertos)}
                         </span>
                       </td>
-                      <td className="px-2 py-2.5 text-right font-semibold text-foreground tabular-nums whitespace-nowrap">
-                        {formatBRL(row.valor_estimado)}
+                      <td className="px-2 py-2.5 text-right font-semibold text-slate-100 tabular-nums whitespace-nowrap">
+                        {hasPopover ? (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                className="cursor-pointer underline decoration-dotted underline-offset-4 hover:text-orange-500 transition-colors"
+                              >
+                                {formatBRL(row.valor_estimado)}
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              side="left"
+                              align="start"
+                              className="border-slate-800/60 bg-slate-900 p-3 shadow-xl w-auto max-w-sm"
+                            >
+                              <NegocioPopoverList empresa={row.empresa} items={negocios} />
+                            </PopoverContent>
+                          </Popover>
+                        ) : (
+                          formatBRL(row.valor_estimado)
+                        )}
                       </td>
                       <td className="px-2 py-2.5 text-right">
                         <span
@@ -161,19 +209,25 @@ export const PipelineClientesUltimaMov = ({
             </table>
           </div>
 
-
-          <div className="flex items-center justify-between mt-3 pt-2 border-t border-border">
-            <p className="text-xs text-muted-foreground">
-              Página <span className="font-semibold text-foreground">{page + 1}</span> de {totalPages}
+          <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-800">
+            <p className="text-xs text-slate-400">
+              Página <span className="font-semibold text-slate-100">{page + 1}</span> de {totalPages}
             </p>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-slate-700"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+              >
                 <ChevronLeft className="h-4 w-4" />
                 Anterior
               </Button>
               <Button
                 variant="outline"
                 size="sm"
+                className="border-slate-700"
                 onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                 disabled={page >= totalPages - 1}
               >

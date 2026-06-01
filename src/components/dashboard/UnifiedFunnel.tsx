@@ -4,23 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ReportCard } from "./ReportCard";
 import { formatBRL, formatNumber } from "@/lib/format";
-import type { FunilEtapa } from "@/hooks/useDashboardData";
-import type { UltimaMovEmpresa } from "@/hooks/useDashboardData";
-
-/**
- * FUNIL ÚNICO E ESTILIZADO.
- *
- * - 8 etapas (Qualificação adicionada com peso 15% no ponderado).
- * - Mudança dinâmica via prop `data` (alimentada pelo setor do header).
- * - Drill-down clicando em qualquer camada: lista paginada (10/pág)
- *   dos clientes daquela etapa.
- *
- * NOTA: A view atual `mv_pipeline_funil` é agregada por etapa (sem deals).
- * Quando uma etapa é clicada, listamos os clientes do pipeline do setor
- * ordenados por valor (visão "negócios em aberto da etapa"). Para listar
- * deal-por-deal será necessário expor `gold.mv_negocios_em_aberto` com
- * `etapa_nome` + `gestor_nome`.
- */
+import type { FunilEtapa, UltimaMovEmpresa } from "@/hooks/useDashboardData";
+import {
+  extractNegociosValidos,
+  negocioFunilCliente,
+  negocioFunilDisplayName,
+  negocioFunilGerente,
+  negocioFunilValor,
+  type NegocioFunilRaw,
+  type SelectedFunnelStage,
+} from "@/lib/funnelNegocios";
 
 export const ETAPAS_FUNIL = [
   { nome: "Qualificação", cor: "#3b82f6", peso: 0.15 },
@@ -36,102 +29,212 @@ export const ETAPAS_FUNIL = [
 const normalize = (v: string) =>
   v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-interface DrillRow {
-  cliente: string;
-  gerente: string;
-  valor: number;
-}
+const FUNNEL_WIDTHS_PCT = [100, 92, 84, 76, 68, 60, 52, 44];
 
 const PAGE = 10;
 
 const StageDrilldown = ({
-  rows,
+  negocios,
   stageName,
   onClose,
 }: {
-  rows: DrillRow[];
+  negocios: NegocioFunilRaw[];
   stageName: string;
   onClose: () => void;
 }) => {
   const [page, setPage] = useState(0);
-  const sorted = useMemo(() => [...rows].sort((a, b) => b.valor - a.valor), [rows]);
+  const sorted = useMemo(
+    () => [...negocios].sort((a, b) => negocioFunilValor(b) - negocioFunilValor(a)),
+    [negocios]
+  );
   const total = sorted.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE));
   const slice = sorted.slice(page * PAGE, (page + 1) * PAGE);
+
   return (
-    <div className="mt-4 rounded-md border border-border bg-card/60 p-3">
-      <div className="flex items-center justify-between gap-3 mb-2">
+    <div className="mt-4 rounded-lg border border-slate-800/60 bg-slate-900/90 p-3">
+      <div className="flex items-center justify-between gap-3 mb-3">
         <div>
-          <p className="text-sm font-semibold text-foreground">
-            Negócios na etapa: <span className="text-primary">{stageName}</span>
+          <p className="text-sm font-semibold text-slate-100">
+            Negócios na etapa: <span className="text-orange-500">{stageName}</span>
           </p>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-slate-400">
             {total} {total === 1 ? "negócio" : "negócios"} · ordenado pelo maior valor
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={onClose}>
+        <Button variant="outline" size="sm" onClick={onClose} className="border-slate-700">
           Fechar
         </Button>
       </div>
       {total === 0 ? (
-        <div className="py-6 text-center text-xs text-muted-foreground">
+        <div className="py-6 text-center text-xs text-slate-400">
           Sem negócios listáveis nesta etapa para o setor selecionado.
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-left border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
-                  <th className="py-2 pr-2 font-medium">Cliente</th>
-                  <th className="py-2 px-2 font-medium">Gerente</th>
-                  <th className="py-2 pl-2 font-medium text-right">Valor</th>
-                </tr>
-              </thead>
-              <tbody>
-                {slice.map((r, i) => (
-                  <tr
-                    key={`${r.cliente}-${i}`}
-                    className="border-b border-border/40 hover:bg-muted/30"
-                  >
-                    <td className="py-2 pr-2 font-medium text-foreground truncate max-w-[280px]">
-                      {r.cliente}
-                    </td>
-                    <td className="py-2 px-2 text-muted-foreground">{r.gerente}</td>
-                    <td className="py-2 pl-2 text-right font-semibold tabular-nums">
-                      {formatBRL(r.valor)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+            {slice.map((n, i) => (
+              <div
+                key={`${n.id}-${i}`}
+                className="rounded-md border border-slate-800/60 bg-slate-950/60 p-3"
+              >
+                <p className="text-sm font-semibold text-slate-100 leading-snug">
+                  {negocioFunilDisplayName(n)}
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">{negocioFunilCliente(n)}</p>
+                <p className="text-xs text-slate-300 mt-1">{negocioFunilGerente(n)}</p>
+                <p className="text-sm font-bold text-blue-400 mt-1 tabular-nums">
+                  {formatBRL(negocioFunilValor(n))}
+                </p>
+              </div>
+            ))}
           </div>
-          <div className="flex items-center justify-between pt-2 mt-2 border-t border-border">
-            <p className="text-[11px] text-muted-foreground">
-              Página <span className="font-semibold text-foreground">{page + 1}</span> de {totalPages}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-              >
-                <ChevronLeft className="h-4 w-4" /> Anterior
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page >= totalPages - 1}
-              >
-                Próxima <ChevronRight className="h-4 w-4" />
-              </Button>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-3 mt-3 border-t border-slate-800">
+              <p className="text-[11px] text-slate-400">
+                Página <span className="font-semibold text-slate-200">{page + 1}</span> de{" "}
+                {totalPages}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-700"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                >
+                  <ChevronLeft className="h-4 w-4" /> Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-700"
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                >
+                  Próxima <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
     </div>
+  );
+};
+
+const stagePath = (
+  cx: number,
+  y: number,
+  h: number,
+  wTop: number,
+  wBottom: number
+): string => {
+  const tl = cx - wTop / 2;
+  const tr = cx + wTop / 2;
+  const bl = cx - wBottom / 2;
+  const br = cx + wBottom / 2;
+  const yb = y + h;
+  const curve = Math.min(wTop, wBottom) * 0.12;
+  return [
+    `M ${tl} ${y}`,
+    `L ${tr} ${y}`,
+    `C ${tr + curve} ${y + h * 0.45} ${br + curve} ${y + h * 0.55} ${br} ${yb}`,
+    `L ${bl} ${yb}`,
+    `C ${bl - curve} ${y + h * 0.55} ${tl - curve} ${y + h * 0.45} ${tl} ${y}`,
+    "Z",
+  ].join(" ");
+};
+
+interface SmoothFunnelProps {
+  etapas: Array<{ nome: string; cor: string; valor: number; qtd: number }>;
+  activeStage: string | null;
+  onStageClick: (nome: string) => void;
+}
+
+const SmoothFunnelSvg = ({ etapas, activeStage, onStageClick }: SmoothFunnelProps) => {
+  const SVG_W = 520;
+  const STAGE_H = 58;
+  const PAD_TOP = 12;
+  const cx = SVG_W / 2;
+  const maxWidth = SVG_W * 0.88;
+  const widths = etapas.map((_, i) => (FUNNEL_WIDTHS_PCT[i] ?? 40) * (maxWidth / 100));
+  const totalH = PAD_TOP + etapas.length * STAGE_H + 8;
+
+  return (
+    <svg
+      viewBox={`0 0 ${SVG_W} ${totalH}`}
+      className="w-full max-w-xl mx-auto drop-shadow-lg"
+      role="img"
+      aria-label="Funil de vendas"
+    >
+      <defs>
+        {etapas.map((e) => (
+          <linearGradient
+            key={`grad-${e.nome}`}
+            id={`funnel-grad-${e.nome}`}
+            x1="0"
+            y1="0"
+            x2="0"
+            y2="1"
+          >
+            <stop offset="0%" stopColor={e.cor} stopOpacity={0.95} />
+            <stop offset="100%" stopColor={e.cor} stopOpacity={0.72} />
+          </linearGradient>
+        ))}
+      </defs>
+      {etapas.map((etapa, i) => {
+        const y = PAD_TOP + i * STAGE_H;
+        const wTop = widths[i];
+        const wBottom = i < etapas.length - 1 ? widths[i + 1] : widths[i] * 0.92;
+        const isActive = activeStage === etapa.nome;
+        return (
+          <g
+            key={etapa.nome}
+            className="cursor-pointer transition-opacity"
+            opacity={activeStage && !isActive ? 0.55 : 1}
+            onClick={() => onStageClick(etapa.nome)}
+            onKeyDown={(ev) => {
+              if (ev.key === "Enter" || ev.key === " ") {
+                ev.preventDefault();
+                onStageClick(etapa.nome);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-pressed={isActive}
+          >
+            <path
+              d={stagePath(cx, y, STAGE_H - 4, wTop, wBottom)}
+              fill={`url(#funnel-grad-${etapa.nome})`}
+              stroke={isActive ? "#f97316" : "rgba(255,255,255,0.15)"}
+              strokeWidth={isActive ? 2.5 : 1}
+              className="transition-all duration-200 hover:brightness-110"
+            />
+            <text
+              x={cx}
+              y={y + STAGE_H / 2 - 6}
+              textAnchor="middle"
+              fill="#fff"
+              fontSize={15}
+              fontWeight={700}
+            >
+              {formatBRL(etapa.valor)}
+            </text>
+            <text
+              x={cx}
+              y={y + STAGE_H / 2 + 12}
+              textAnchor="middle"
+              fill="rgba(255,255,255,0.92)"
+              fontSize={11}
+              fontWeight={500}
+            >
+              {etapa.qtd} negócios · {etapa.nome}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
   );
 };
 
@@ -140,10 +243,7 @@ interface UnifiedFunnelProps {
   subtitle?: string;
   data?: FunilEtapa[];
   isLoading: boolean;
-  /** Lista de empresas do pipeline (para o drill-down). */
   clientes?: UltimaMovEmpresa[];
-  /** Função opcional para descobrir o gerente responsável por empresa. */
-  gerentePorEmpresa?: Map<string, string>;
 }
 
 export const UnifiedFunnel = ({
@@ -151,10 +251,8 @@ export const UnifiedFunnel = ({
   subtitle,
   data,
   isLoading,
-  clientes,
-  gerentePorEmpresa,
 }: UnifiedFunnelProps) => {
-  const [stageOpen, setStageOpen] = useState<string | null>(null);
+  const [selectedStage, setSelectedStage] = useState<SelectedFunnelStage | null>(null);
 
   const etapas = useMemo(() => {
     const src = data ?? [];
@@ -166,27 +264,33 @@ export const UnifiedFunnel = ({
         ...etapa,
         valor: Number(found?.valor_total ?? 0),
         qtd: Number(found?.quantidade ?? 0),
+        funilRow: found,
       };
     });
   }, [data]);
 
-  // (área visual proporcional removida — funil estilo "wedge")
   const totalNegocios = etapas.reduce((s, e) => s + e.qtd, 0);
 
-  const drillRows: DrillRow[] = useMemo(() => {
-    if (!stageOpen) return [];
-    // Distribuímos os clientes do setor proporcionalmente — fallback honesto
-    // até existir uma view por-deal por-etapa. O total bate com a etapa.
-    const stage = etapas.find((e) => e.nome === stageOpen);
-    if (!stage || !clientes?.length) return [];
-    return [...clientes]
-      .sort((a, b) => b.valor_estimado - a.valor_estimado)
-      .map((c) => ({
-        cliente: c.empresa,
-        gerente: gerentePorEmpresa?.get(c.empresa) ?? "—",
-        valor: c.valor_estimado,
-      }));
-  }, [stageOpen, etapas, clientes, gerentePorEmpresa]);
+  const negociosValidos = useMemo(
+    () => extractNegociosValidos(selectedStage),
+    [selectedStage]
+  );
+
+  const handleStageClick = (nome: string) => {
+    if (selectedStage?.nome === nome) {
+      setSelectedStage(null);
+      return;
+    }
+    const match = etapas.find((e) => e.nome === nome);
+    const funilRow = match?.funilRow;
+    setSelectedStage({
+      nome,
+      negocios_detalhados: funilRow?.negocios_detalhados,
+      payload: funilRow
+        ? { negocios_detalhados: funilRow.negocios_detalhados }
+        : undefined,
+    });
+  };
 
   return (
     <ReportCard
@@ -199,61 +303,32 @@ export const UnifiedFunnel = ({
       }
     >
       {isLoading ? (
-        <Skeleton className="h-[560px] w-full" />
+        <Skeleton className="h-[560px] w-full bg-slate-800" />
       ) : (
-        <div className="flex flex-col items-center w-full">
-          <div className="w-full max-w-2xl">
-            {etapas.map((etapa, i) => {
-              const widthPct = 100 - i * (60 / etapas.length); // afunila suavemente
-              const isActive = stageOpen === etapa.nome;
-              return (
-                <button
-                  key={etapa.nome}
-                  type="button"
-                  onClick={() =>
-                    setStageOpen((cur) => (cur === etapa.nome ? null : etapa.nome))
-                  }
-                  className="w-full block group focus:outline-none"
-                >
-                  <div
-                    className="mx-auto flex flex-col items-center justify-center py-3 px-2 transition-all duration-200 group-hover:brightness-110 group-focus-visible:ring-2 group-focus-visible:ring-primary/60"
-                    style={{
-                      width: `${widthPct}%`,
-                      backgroundColor: etapa.cor,
-                      clipPath:
-                        i === 0
-                          ? "polygon(0 0, 100% 0, 96% 100%, 4% 100%)"
-                          : "polygon(4% 0, 96% 0, 92% 100%, 8% 100%)",
-                      opacity: isActive ? 1 : 0.95,
-                      filter: isActive ? "brightness(1.1)" : undefined,
-                      minHeight: 70,
-                      marginBottom: 2,
-                    }}
-                  >
-                    <span className="text-base md:text-lg font-bold text-white leading-tight">
-                      {formatBRL(etapa.valor)}
-                    </span>
-                    <span className="text-[11px] md:text-xs text-white/95 font-medium">
-                      {etapa.qtd} negócios · {etapa.nome}
-                      <span className="ml-2 opacity-80">
-                        (peso {Math.round(etapa.peso * 100)}%)
-                      </span>
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {stageOpen && (
-            <div className="w-full max-w-3xl">
-              <StageDrilldown
-                rows={drillRows}
-                stageName={stageOpen}
-                onClose={() => setStageOpen(null)}
+        <div className="w-full overflow-x-hidden">
+          <div
+            className={`flex w-full transition-all duration-300 ${
+              selectedStage ? "items-start justify-between gap-8" : "flex-col items-center"
+            }`}
+          >
+            <div className={selectedStage ? "w-5/12 min-w-[240px]" : "w-full"}>
+              <SmoothFunnelSvg
+                etapas={etapas}
+                activeStage={selectedStage?.nome ?? null}
+                onStageClick={handleStageClick}
               />
             </div>
-          )}
+
+            {selectedStage && (
+              <div className="w-7/12 min-w-0 flex-1">
+                <StageDrilldown
+                  negocios={negociosValidos}
+                  stageName={selectedStage.nome}
+                  onClose={() => setSelectedStage(null)}
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
     </ReportCard>

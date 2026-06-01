@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -10,6 +10,8 @@ import {
   LabelList,
   LineChart,
   Line,
+  Legend,
+  Cell,
 } from "recharts";
 import { ReportCard } from "./ReportCard";
 import { ErrorState } from "./ErrorState";
@@ -21,7 +23,10 @@ import {
   useRankingVisitas,
   useCurvaEvolucaoGlobal,
 } from "@/hooks/useGerentesData";
+import { useVendasGestorPeriodo } from "@/hooks/useVendasData";
 import { isGerenteWhitelisted } from "@/lib/gerentes";
+import { getManagerColor } from "@/lib/managerColors";
+import { filterCurvaValid } from "@/lib/dateFilters";
 
 /* ============================================================
  * Helpers
@@ -29,13 +34,59 @@ import { isGerenteWhitelisted } from "@/lib/gerentes";
 
 const ORANGE = "hsl(var(--primary))";
 const BLUE = "hsl(var(--secondary))";
-const GREEN = "hsl(var(--success))";
-const RED = "hsl(var(--destructive))";
+const META_YTD_GERENTE = 10_000_000;
 
 interface RankItem {
   responsavel: string;
   qtd: number;
 }
+
+const VendasGerenteTooltip = ({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{
+    value?: number;
+    payload?: {
+      label: string;
+      valor: number;
+      detalhes_vendas_ytd?: Array<{ cliente_nome?: string; valor?: number }>;
+    };
+  }>;
+  label?: string;
+}) => {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  const detalhes = (row?.detalhes_vendas_ytd ?? [])
+    .filter((item) => item?.cliente_nome)
+    .slice(0, 12);
+
+  return (
+    <div className="w-96 max-w-[calc(100vw-2rem)] rounded-md border border-blue-950/50 bg-card px-3 py-2 text-xs text-slate-100 shadow-xl">
+      <p className="font-semibold">{label ?? row?.label}</p>
+      <p className="mt-1 text-slate-300">Total: {formatBRL(Number(row?.valor ?? payload[0]?.value ?? 0))}</p>
+      {detalhes.length > 0 && (
+        <div className="mt-2">
+          {detalhes.map((item, index) => (
+            <div
+              key={`${item.cliente_nome}-${index}`}
+              className="flex items-center justify-between gap-4 border-b border-blue-950/50 py-1.5 last:border-0"
+            >
+              <span className="max-w-[180px] truncate font-medium text-slate-200">
+                {item.cliente_nome}
+              </span>
+              <span className="shrink-0 text-right font-semibold tabular-nums text-slate-400">
+                {formatBRL(Number(item.valor ?? 0))}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const RankBarChart = ({
   data,
@@ -80,13 +131,10 @@ const RankBarChart = ({
             width={130}
             interval={0}
           />
-          <Bar
-            dataKey="qtd"
-            fill={color}
-            radius={[0, 6, 6, 0]}
-            barSize={16}
-            className={color === ORANGE ? "neon-orange" : "neon-blue"}
-          >
+          <Bar dataKey="qtd" fill={color} radius={[0, 6, 6, 0]} barSize={16}>
+            {limpos.map((entry) => (
+              <Cell key={entry.responsavel} fill={getManagerColor(entry.responsavel)} />
+            ))}
             <LabelList
               dataKey="qtd"
               position="right"
@@ -115,10 +163,16 @@ const diasDesde = (iso: string | null | undefined): number | null => {
   return Math.max(0, Math.floor((Date.now() - t) / 86_400_000));
 };
 
-const semaforoCor = (dias: number) => {
-  if (dias > 30) return RED;
-  if (dias > 15) return "hsl(var(--warning))";
-  return GREEN;
+const semaforoNeonDot = (dias: number) => {
+  if (dias > 30) return "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]";
+  if (dias > 15) return "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.8)]";
+  return "bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]";
+};
+
+const semaforoTextClass = (dias: number) => {
+  if (dias > 30) return "text-red-500 bg-red-500/15";
+  if (dias > 15) return "text-amber-500 bg-amber-500/15";
+  return "text-emerald-500 bg-emerald-500/15";
 };
 
 const semaforoLabel = (dias: number) => {
@@ -131,11 +185,19 @@ const semaforoLabel = (dias: number) => {
  * Page
  * ========================================================== */
 
-export const GerentesTab = () => {
-  const perf = usePerformanceGestor();
+interface GerentesTabProps {
+  periodo: string;
+}
+
+export const GerentesTab = ({ periodo }: GerentesTabProps) => {
+  const currentMonth = new Date().getMonth() + 1;
+  const selectedMonth = periodo === "ytd" ? currentMonth : Number(periodo.replace("mes-", ""));
+  const perf = usePerformanceGestor(selectedMonth);
+  const vendasGestor = useVendasGestorPeriodo("avantia", selectedMonth);
   const movs = useRankingMovimentacoesDeals(200);
   const visitas = useRankingVisitas(200);
   const curvaGlobal = useCurvaEvolucaoGlobal();
+  const [hiddenManagers, setHiddenManagers] = useState<Set<string>>(() => new Set());
 
   if (perf.error) return <ErrorState message={(perf.error as Error).message} />;
 
@@ -150,10 +212,21 @@ export const GerentesTab = () => {
     [dataWL]
   );
 
-  const chartData = sortedByVolume.map((g) => ({
-    label: (g.gestor_nome ?? "").trim() || "—",
-    valor: Number(g.valor_total_ganho_ytd ?? 0),
-  }));
+  const chartData = useMemo(
+    () =>
+      (vendasGestor.data?.ytd ?? [])
+        .filter((g) => isGerenteWhitelisted(g.gestor_nome))
+        .map((g) => ({
+          label: (g.gestor_nome ?? "").trim() || "—",
+          valor: Number(g.valor_ytd ?? 0),
+          detalhes_vendas_ytd: (g.detalhes_vendas_ytd ?? []).map((d) => ({
+            cliente_nome: d.cliente,
+            valor: d.valor,
+          })),
+        }))
+        .sort((a, b) => b.valor - a.valor),
+    [vendasGestor.data]
+  );
 
   /* Movs / visitas — última movimentação por gerente. Não temos
    * "última data" na view atual, então usamos a quantidade como proxy:
@@ -187,6 +260,33 @@ export const GerentesTab = () => {
     [visitas.data]
   );
 
+  const curvaData = useMemo(
+    () => filterCurvaValid(curvaGlobal.data ?? []),
+    [curvaGlobal.data]
+  );
+
+  const curvaManagers = useMemo(() => {
+    const reserved = new Set(["ano", "mes", "label", "qtd_oportunidades"]);
+    const names = new Set<string>();
+    for (const row of curvaData) {
+      Object.keys(row).forEach((key) => {
+        if (!reserved.has(key)) names.add(key);
+      });
+    }
+    return Array.from(names);
+  }, [curvaData]);
+
+  const toggleManagerLine = (value: unknown) => {
+    const manager = String(value ?? "");
+    if (!manager) return;
+    setHiddenManagers((current) => {
+      const next = new Set(current);
+      if (next.has(manager)) next.delete(manager);
+      else next.add(manager);
+      return next;
+    });
+  };
+
   return (
     <>
       {/* Bloco 1 — Volume vendido por gerente */}
@@ -194,7 +294,7 @@ export const GerentesTab = () => {
         title="Volume Total Vendido por Gerente (YTD)"
         subtitle="Volume financeiro acumulado no ano · ordenado do maior para o menor"
       >
-        {perf.isLoading ? (
+        {vendasGestor.isLoading ? (
           <Skeleton className="h-[450px] w-full" />
         ) : chartData.length === 0 ? (
           <div className="h-[400px] flex items-center justify-center text-sm text-muted-foreground">
@@ -225,13 +325,19 @@ export const GerentesTab = () => {
                   width={140}
                   interval={0}
                 />
+                <RechartsTooltip
+                  cursor={{ fill: "hsl(var(--muted))" }}
+                  content={<VendasGerenteTooltip />}
+                />
                 <Bar
                   dataKey="valor"
                   fill={ORANGE}
                   radius={[0, 6, 6, 0]}
                   barSize={18}
-                  className="neon-orange"
                 >
+                  {chartData.map((entry) => (
+                    <Cell key={entry.label} fill={getManagerColor(entry.label)} />
+                  ))}
                   <LabelList
                     dataKey="valor"
                     position="right"
@@ -250,19 +356,19 @@ export const GerentesTab = () => {
       {/* Bloco 2 — Curva de Oportunidades GERADAS GLOBAL */}
       <ReportCard
         title="Curva de Geração de Oportunidades (Global)"
-        subtitle="Soma de oportunidades geradas pelos 10 gerentes ao longo do tempo"
+        subtitle="Linhas por gerente para comparar oportunidades geradas ao longo do tempo"
       >
         <div className="h-[360px] w-full">
           {curvaGlobal.isLoading ? (
             <Skeleton className="h-full w-full" />
-          ) : (curvaGlobal.data ?? []).length === 0 ? (
+          ) : curvaData.length === 0 ? (
             <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
               Sem histórico para os gerentes.
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={curvaGlobal.data}
+                data={curvaData}
                 margin={{ top: 16, right: 24, left: 8, bottom: 16 }}
               >
                 <CartesianGrid
@@ -272,12 +378,13 @@ export const GerentesTab = () => {
                 />
                 <XAxis
                   dataKey="label"
-                  tick={{ fontSize: 11, fill: "hsl(var(--foreground))" }}
+                  tick={{ fontSize: 11, fill: "#94a3b8" }}
                   interval="preserveStartEnd"
                 />
                 <YAxis
-                  tick={{ fontSize: 11, fill: "hsl(var(--foreground))" }}
+                  tick={{ fontSize: 11, fill: "#94a3b8" }}
                   allowDecimals={false}
+                  domain={[0, (dataMax: number) => Math.max(Math.ceil(dataMax * 1.2), 1)]}
                 />
                 <RechartsTooltip
                   contentStyle={{
@@ -288,15 +395,27 @@ export const GerentesTab = () => {
                     fontSize: 12,
                   }}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="qtd_oportunidades"
-                  name="Oportunidades Geradas"
-                  stroke={BLUE}
-                  strokeWidth={2.5}
-                  dot={{ r: 3 }}
-                  activeDot={{ r: 5 }}
+                <Legend
+                  wrapperStyle={{ fontSize: 12, cursor: "pointer", color: "#e2e8f0" }}
+                  formatter={(value) => (
+                    <span style={{ color: "#e2e8f0" }}>{value}</span>
+                  )}
+                  onClick={(payload) => toggleManagerLine(payload?.dataKey ?? payload?.value)}
                 />
+                {curvaManagers.map((manager) => (
+                  <Line
+                    key={manager}
+                    type="monotone"
+                    dataKey={manager}
+                    name={manager}
+                    hide={hiddenManagers.has(manager)}
+                    stroke={getManagerColor(manager)}
+                    strokeWidth={2.5}
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 5 }}
+                    connectNulls
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -315,32 +434,24 @@ export const GerentesTab = () => {
             Sem dados disponíveis.
           </p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {inatividadeRows.map((r) => (
               <li
                 key={r.gestor}
-                className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-card/70 px-3 py-2.5"
+                className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card/80 p-3 shadow-sm"
               >
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
                   <span
-                    className="h-3 w-3 shrink-0 rounded-full"
-                    style={{ backgroundColor: semaforoCor(r.dias) }}
+                    className={`h-3 w-3 shrink-0 rounded-full ${semaforoNeonDot(r.dias)}`}
+                    aria-hidden
                   />
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">
-                      {r.gestor}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {r.qtdMov} movimentações registradas
-                    </p>
-                  </div>
+                  <p className="text-sm font-semibold text-foreground truncate">{r.gestor}</p>
                 </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {r.qtdMov} movimentações registradas
+                </p>
                 <span
-                  className="text-xs font-bold px-2 py-1 rounded-md"
-                  style={{
-                    backgroundColor: `${semaforoCor(r.dias)}22`,
-                    color: semaforoCor(r.dias),
-                  }}
+                  className={`self-start text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md ${semaforoTextClass(r.dias)}`}
                 >
                   {semaforoLabel(r.dias)} · ~{r.dias}d
                 </span>
@@ -353,7 +464,7 @@ export const GerentesTab = () => {
       {/* Bloco 4 — KPIs por gerente (mantido como cards informativos) */}
       <ReportCard
         title="KPIs Operacionais por Gerente"
-        subtitle="Win rate · negócios · ticket · prazo"
+        subtitle="Conversão · negócios · ticket · prazo · meta YTD"
       >
         {perf.isLoading ? (
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -377,9 +488,13 @@ export const GerentesTab = () => {
                 </p>
                 <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
                   <span className="text-muted-foreground">
-                    Win Rate:{" "}
+                    Taxa Conversão:{" "}
                     <span className="font-semibold text-foreground">
-                      {formatPercent(g.win_rate)}
+                      {formatPercent(
+                        g.total_oportunidades_ytd > 0
+                          ? (g.negocios_ganhos_ytd / g.total_oportunidades_ytd) * 100
+                          : 0
+                      )}
                     </span>
                   </span>
                   <span className="text-muted-foreground">
@@ -397,8 +512,27 @@ export const GerentesTab = () => {
                   <span className="text-muted-foreground">
                     Prazo:{" "}
                     <span className="font-semibold text-foreground">
-                      {Math.round(g.dias_medios_fechamento)} dias
+                      {Math.round(g.prazo_medio_dias || g.dias_medios_fechamento || 0)} dias
                     </span>
+                  </span>
+                  <span className="text-muted-foreground col-span-2">
+                    {Math.round(g.prazo_medio_dias || g.dias_medios_fechamento || 0)} dias de ciclo médio
+                  </span>
+                  <span className="col-span-2 mt-1">
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span>Meta YTD: {formatBRL(META_YTD_GERENTE)}</span>
+                      <span className="font-semibold text-foreground">
+                        {formatPercent(Math.min((g.valor_total_ganho_ytd / META_YTD_GERENTE) * 100, 100))}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-800">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-sky-400 to-emerald-400"
+                        style={{
+                          width: `${Math.min((g.valor_total_ganho_ytd / META_YTD_GERENTE) * 100, 100)}%`,
+                        }}
+                      />
+                    </div>
                   </span>
                 </div>
               </li>

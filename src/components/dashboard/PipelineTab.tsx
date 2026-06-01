@@ -44,7 +44,7 @@ const BigValueCard = ({
   isLoading: boolean;
   infoTooltip?: "ponderado" | string;
 }) => (
-  <Card className="relative p-5">
+  <Card className="relative p-5 bg-slate-900 border-slate-800/60 shadow-lg">
     {infoTooltip && (
       <div className="absolute top-5 right-5">
         <TooltipProvider delayDuration={150}>
@@ -106,7 +106,7 @@ export const PipelineTab = ({ sector }: PipelineTabProps) => {
   const clientes = usePipelineClientesUltimaMov(5000, scope);
 
   /* Pipeline Ponderado RECALCULADO no front com os pesos da nova lista de etapas
-   * (inclui Qualificação com peso 15%). Mantém o valor da view como fallback. */
+   * Mantém o valor da view como fallback. */
   const ponderadoCalc = useMemo(() => {
     const etapas = funil.data?.etapas ?? [];
     if (!etapas.length) return null;
@@ -136,7 +136,7 @@ export const PipelineTab = ({ sector }: PipelineTabProps) => {
         />
         <BigValueCard
           title="Pipeline Ponderado"
-          subtitle={`Valor × probabilidade (inclui Qualificação 15%) · ${sectorLabel}`}
+          subtitle={`Valor × probabilidade · ${sectorLabel}`}
           value={
             ponderadoCalc != null
               ? formatBRL(ponderadoCalc)

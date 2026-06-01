@@ -14,10 +14,11 @@ interface Props {
   maxRows?: number;
 }
 
+/** > 30 dias: vermelho · 16–30: laranja · ≤ 15: neutro */
 const diasBadge = (dias: number) => {
-  if (dias >= 45) return "bg-destructive/15 text-destructive border-destructive/30";
-  if (dias >= 30) return "bg-warning/15 text-warning border-warning/30";
-  return "bg-primary/10 text-primary border-primary/20";
+  if (dias > 30) return "text-red-500 bg-red-500/20 border-red-500/30";
+  if (dias >= 16) return "text-orange-500 bg-orange-500/20 border-orange-500/30";
+  return "text-slate-300 bg-slate-800/60 border-slate-700/50";
 };
 
 export const EstagnadosTable = ({
@@ -40,7 +41,7 @@ export const EstagnadosTable = ({
           : `${formatNumber(rows.length)} negócios · ${formatBRL(totalRisco)} em risco`
       }
       action={
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-destructive/10 text-destructive text-[11px] font-semibold">
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 text-[11px] font-semibold border border-red-500/25">
           <AlertTriangle className="h-3 w-3" />
           Atenção
         </span>
@@ -49,7 +50,7 @@ export const EstagnadosTable = ({
       {isLoading ? (
         <div className="space-y-1.5">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-9 w-full" />
+            <Skeleton key={i} className="h-9 w-full bg-slate-800" />
           ))}
         </div>
       ) : error ? (
@@ -60,7 +61,7 @@ export const EstagnadosTable = ({
         <div className="overflow-x-auto -mx-4 sm:-mx-5">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+              <tr className="border-b border-slate-800 text-left text-[11px] uppercase tracking-wider text-slate-400">
                 <th className="px-4 sm:px-5 py-2 font-medium">Negócio</th>
                 <th className="px-3 py-2 font-medium">Gerente</th>
                 <th className="px-3 py-2 font-medium text-right">Dias Parado</th>
@@ -71,13 +72,15 @@ export const EstagnadosTable = ({
               {rows.map((r) => (
                 <tr
                   key={r.id || `${r.negocio}-${r.empresa}`}
-                  className="border-b border-border/50 hover:bg-muted/40 transition-colors"
+                  className="border-b border-slate-800/50 hover:bg-slate-800/40 transition-colors"
                 >
                   <td className="px-4 sm:px-5 py-2.5 min-w-0">
-                    <p className="font-medium text-foreground truncate max-w-[280px]">{r.negocio}</p>
-                    <p className="text-[11px] text-muted-foreground truncate max-w-[280px]">{r.empresa}</p>
+                    <p className="font-medium text-slate-100 truncate max-w-[280px]">{r.negocio}</p>
+                    <p className="text-[11px] text-slate-400 truncate max-w-[280px]">{r.empresa}</p>
                   </td>
-                  <td className="px-3 py-2.5 text-foreground whitespace-nowrap">{r.gestor}</td>
+                  <td className="px-3 py-2.5 text-slate-300 whitespace-nowrap">
+                    {r.gestor_nome || r.gerente || r.gestor || "Não Atribuído"}
+                  </td>
                   <td className="px-3 py-2.5 text-right">
                     <span
                       className={cn(
@@ -88,7 +91,7 @@ export const EstagnadosTable = ({
                       {r.dias_parado}d
                     </span>
                   </td>
-                  <td className="px-4 sm:px-5 py-2.5 text-right font-semibold text-foreground tabular-nums whitespace-nowrap">
+                  <td className="px-4 sm:px-5 py-2.5 text-right font-semibold text-slate-100 tabular-nums whitespace-nowrap">
                     {formatBRL(r.valor)}
                   </td>
                 </tr>

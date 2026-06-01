@@ -20,22 +20,41 @@ interface Props {
   error: Error | null;
 }
 
+const MotivoTooltip = ({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ value?: number; payload?: MotivoPerda }>;
+  label?: string;
+}) => {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  const qtd = Number(payload[0]?.value ?? row?.qtd_negocios ?? 0);
+  return (
+    <div className="rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-xs shadow-xl">
+      <p className="font-semibold leading-snug text-slate-100">{label ?? row?.motivo}</p>
+      <p className="mt-1 text-slate-300">
+        {formatNumber(qtd)} negocios - {formatBRL(Number(row?.valor_perdido ?? 0))}
+      </p>
+    </div>
+  );
+};
+
 export const MotivosPerdaChart = ({ data, isLoading, error }: Props) => {
-  // TOP 10 motivos por frequência (do maior para o menor)
   const rows = [...(data ?? [])]
     .sort((a, b) => b.qtd_negocios - a.qtd_negocios)
-    .slice(0, 10);
+    .slice(0, 15);
 
-  // Altura dinâmica: mínimo 40px por linha para evitar sobreposição,
-  // garantindo legibilidade independentemente da quantidade de motivos.
-  const ROW_H = 40;
-  const chartHeight = Math.max(220, rows.length * ROW_H + 40);
+  const rowHeight = 42;
+  const chartHeight = Math.max(260, rows.length * rowHeight + 48);
 
   return (
     <ReportCard
       id="motivos-perda"
-      title="Motivos de Perda — Top 10"
-      subtitle="Ranking por frequência · valor perdido no total"
+      title="Motivos de Perda - Top 15"
+      subtitle="Ranking por frequencia - valor perdido no total - dados a partir de Jan/2026"
     >
       <div style={{ height: chartHeight }}>
         {isLoading ? (
@@ -45,77 +64,41 @@ export const MotivosPerdaChart = ({ data, isLoading, error }: Props) => {
         ) : rows.length === 0 ? (
           <ErrorState message="Sem dados de perda." />
         ) : (
-          <div className="flex h-full min-h-0 w-full items-start justify-start overflow-x-auto">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={rows}
-                layout="vertical"
-                margin={{ top: 8, right: 24, bottom: 8, left: 8 }}
-                barCategoryGap="35%"
-              >
-                <CartesianGrid horizontal={false} stroke="hsl(var(--border))" />
-                <XAxis
-                  type="number"
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={{ stroke: "hsl(var(--border))" }}
-                  tickFormatter={(v) => formatNumber(v)}
-                  allowDecimals={false}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="motivo"
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                  width={190}
-                  interval={0}
-                  tick={({ x, y, payload }) => {
-                    const full = String(payload.value ?? "");
-                    const max = 26;
-                    const text = full.length > max ? `${full.slice(0, max).trimEnd()}…` : full;
-                    return (
-                      <g transform={`translate(${x},${y})`}>
-                        <title>{full}</title>
-                        <text
-                          x={-8}
-                          y={0}
-                          dy={4}
-                          textAnchor="end"
-                          fill="hsl(var(--muted-foreground))"
-                          fontSize={11}
-                        >
-                          {text}
-                        </text>
-                      </g>
-                    );
-                  }}
-                />
-                <Tooltip
-                  cursor={{ fill: "hsl(var(--muted))" }}
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: 8,
-                    fontSize: 12,
-                    boxShadow: "var(--shadow-elevated)",
-                  }}
-                  labelFormatter={(label) => String(label)}
-                  formatter={(value: number, _n, p) => [
-                    `${formatNumber(value)} negócios · ${formatBRL(Number(p.payload.valor_perdido ?? 0))}`,
-                    "Perdidos",
-                  ]}
-                />
-                <Bar dataKey="qtd_negocios" radius={[0, 6, 6, 0]} maxBarSize={22}>
-                  {rows.map((_, i) => (
-                    <Cell key={i} fill="hsl(var(--destructive) / 0.85)" />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={rows}
+              layout="vertical"
+              margin={{ top: 8, right: 24, bottom: 8, left: 0 }}
+              barCategoryGap="32%"
+            >
+              <CartesianGrid horizontal={false} stroke="hsl(var(--border))" />
+              <XAxis
+                type="number"
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={11}
+                tickLine={false}
+                axisLine={{ stroke: "hsl(var(--border))" }}
+                tickFormatter={(v) => formatNumber(v)}
+                allowDecimals={false}
+              />
+              <YAxis
+                type="category"
+                dataKey="motivo"
+                stroke="hsl(var(--muted-foreground))"
+                tickLine={false}
+                axisLine={false}
+                width={260}
+                interval={0}
+                tick={{ fontSize: 12, fill: "#e2e8f0" }}
+              />
+              <Tooltip cursor={{ fill: "hsl(var(--muted))" }} content={<MotivoTooltip />} />
+              <Bar dataKey="qtd_negocios" radius={[0, 6, 6, 0]} maxBarSize={22}>
+                {rows.map((_, i) => (
+                  <Cell key={i} fill="hsl(var(--destructive) / 0.85)" />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         )}
       </div>
     </ReportCard>

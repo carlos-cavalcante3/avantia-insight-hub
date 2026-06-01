@@ -8,6 +8,7 @@ import { GerentesTab } from "@/components/dashboard/GerentesTab";
 import { AnaliseGerentesTab } from "@/components/dashboard/AnaliseGerentesTab";
 import { EstagnadosTable } from "@/components/dashboard/EstagnadosTable";
 import { MotivosPerdaChart } from "@/components/dashboard/MotivosPerdaChart";
+import { LicitacoesTab } from "@/components/dashboard/LicitacoesTab";
 import { ReportCard } from "@/components/dashboard/ReportCard";
 import {
   Select,
@@ -35,6 +36,7 @@ const sectorToScope = (s: Sector): PipelineScope => {
 const Index = () => {
   const [tab, setTab] = useState<DashboardTab>("vendas");
   const [sector, setSector] = useState<Sector>("avantia");
+  const [periodo, setPeriodo] = useState("ytd");
   const [gestorSelecionado, setGestorSelecionado] = useState<string | null>(null);
   const pipelineScope = sectorToScope(sector);
 
@@ -75,13 +77,15 @@ const Index = () => {
     ) : undefined;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-950 text-slate-100">
       <Sidebar active={tab} onChange={setTab} />
 
       <div className="lg:pl-56">
         <Header
           sector={sector}
           onSectorChange={setSector}
+          periodo={periodo}
+          onPeriodoChange={setPeriodo}
           selectorOverride={headerOverride}
           hideSectorSelector={tab === "gerentes"}
         />
@@ -98,23 +102,17 @@ const Index = () => {
             </div>
           )}
 
-          {tab === "vendas" && <VendasTab sector={sector} />}
+          {tab === "vendas" && <VendasTab sector={sector} periodo={periodo} />}
 
           {tab === "pipeline" && <PipelineTab sector={sector} />}
 
-          {tab === "gerentes" && <GerentesTab />}
+          {tab === "gerentes" && <GerentesTab periodo={periodo} />}
 
           {tab === "analise_gerentes" && (
-            <AnaliseGerentesTab gestor={gestorSelecionado} />
+            <AnaliseGerentesTab gestor={gestorSelecionado} periodo={periodo} />
           )}
 
-          {tab === "licitacoes" && (
-            <ReportCard title="Licitações" subtitle="Em desenvolvimento">
-              <div className="py-12 text-center text-sm text-muted-foreground">
-                Esta seção será conectada às views de licitações em breve.
-              </div>
-            </ReportCard>
-          )}
+          {tab === "licitacoes" && <LicitacoesTab />}
 
           {tab === "alertas" && (
             <>

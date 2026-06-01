@@ -4,6 +4,7 @@ import {
   isPipelineNomeAvantiaGeral,
   normalizePipelineNome,
 } from "@/lib/pipelineAvantiaGeral";
+import { parseNegociosDetalhados } from "@/lib/parseJsonArray";
 
 export type Sector = "avantia" | "publico" | "privado" | "audio_video";
 
@@ -60,9 +61,6 @@ export interface KpisAggregated {
   win_rate_mtd_ano_anterior: number | null;
 }
 
-const calcularTaxaConversao = (ganhos: number, oportunidades: number): number =>
-  oportunidades > 0 ? (ganhos / oportunidades) * 100 : 0;
-
 /** Consolida várias linhas de `mv_kpis_gerais` (ex.: visão Geral = Privado + Público + Áudio).
  *  IMPORTANTE: somamos os números brutos (qtd_ganhos / qtd_oportunidades) e recalculamos
  *  a taxa de conversão no JS. Nunca somar ou tirar média de porcentagens. */
@@ -71,6 +69,26 @@ const safePct = (num: number, den: number): number => {
   const v = (num / den) * 100;
   return Number.isFinite(v) ? v : 0;
 };
+
+const oportunidadesYtdFromRow = (r: Record<string, unknown>): number =>
+  Number(
+    r.oportunidades_geradas_ytd ??
+      r.qtd_oportunidades_geradas_ytd ??
+      r.total_oportunidades_ytd ??
+      r.qtd_oportunidades_ytd ??
+      r.total_propostas_ytd ??
+      0
+  );
+
+const oportunidadesMtdFromRow = (r: Record<string, unknown>): number =>
+  Number(
+    r.oportunidades_geradas_mtd ??
+      r.qtd_oportunidades_geradas_mtd ??
+      r.total_oportunidades_mtd ??
+      r.qtd_oportunidades_mtd ??
+      r.total_propostas_mtd ??
+      0
+  );
 
 /** Consolida várias linhas de `mv_kpis_gerais` somando números brutos e recalculando taxa no JS.
  *  Nunca somar ou tirar média de porcentagens. Usa `total_propostas_*` (campo correto da view)
@@ -85,10 +103,10 @@ const consolidateKpiSubset = (rows: Record<string, unknown>[]): Record<string, u
   for (const r of rows) {
     valor_ytd += Number(r.valor_ganho_ytd ?? r.valor_total_ganho_ytd ?? 0);
     qtd_ganhos_ytd += Number(r.qtd_ganhos_ytd ?? r.total_negocios_ganhos_ytd ?? 0);
-    qtd_oport_ytd += Number(r.total_propostas_ytd ?? r.qtd_oportunidades_ytd ?? 0);
+    qtd_oport_ytd += oportunidadesYtdFromRow(r);
     valor_mtd += Number(r.valor_ganho_mtd ?? 0);
     qtd_ganhos_mtd += Number(r.qtd_ganhos_mtd ?? 0);
-    qtd_oport_mtd += Number(r.total_propostas_mtd ?? r.qtd_oportunidades_mtd ?? 0);
+    qtd_oport_mtd += oportunidadesMtdFromRow(r);
   }
   return {
     valor_ganho_ytd: valor_ytd,
@@ -146,10 +164,14 @@ const rowToKpisAggregated = (row: Record<string, unknown> | null): KpisAggregate
   const valor_mtd = Number(row.valor_ganho_mtd ?? 0);
   const qtd_mtd = Number(row.qtd_ganhos_mtd ?? 0);
   // Recalcula sempre a partir dos brutos para garantir integridade (evita NaN/Infinity).
-  const oport_ytd = Number(row.total_propostas_ytd ?? row.qtd_oportunidades_ytd ?? 0);
-  const oport_mtd = Number(row.total_propostas_mtd ?? row.qtd_oportunidades_mtd ?? 0);
-  const win_rate_ytd = safePct(qtd_ytd, oport_ytd);
-  const win_rate_mtd = safePct(qtd_mtd, oport_mtd);
+  const oport_ytd = oportunidadesYtdFromRow(row);
+  const oport_mtd = oportunidadesMtdFromRow(row);
+  const win_rate_ytd = Number(
+    row.taxa_conversao_ytd ?? row.taxa_conversao ?? safePct(qtd_ytd, oport_ytd)
+  );
+  const win_rate_mtd = Number(
+    row.taxa_conversao_mtd ?? safePct(qtd_mtd, oport_mtd)
+  );
   return {
     valor_ytd,
     qtd_ytd,
@@ -164,33 +186,74 @@ const rowToKpisAggregated = (row: Record<string, unknown> | null): KpisAggregate
   };
 };
 
-export const useKpisVendas = (sector: Sector = "avantia") =>
+const selectedMonthOrCurrent = (selectedMonth?: number) => {
+  const current = new Date().getMonth() + 1;
+  return selectedMonth && selectedMonth >= 1 && selectedMonth <= 12 ? selectedMonth : current;
+};
+
+const applySelectedMonthToKpis = (
+  base: KpisAggregated,
+  rows: Record<string, unknown>[],
+  sector: Sector,
+  selectedMonth?: number
+): KpisAggregated => {
+  const month = selectedMonthOrCurrent(selectedMonth);
+  const year = new Date().getFullYear();
+  const monthRows = rows.filter(
+    (r) => Number(r.ano) === year && Number(r.mes) === month && matchSector(String(r.pipeline_nome), sector)
+  );
+  if (!monthRows.length) return base;
+  const valor_mtd = monthRows.reduce((sum, r) => sum + Number(r.receita_total ?? 0), 0);
+  const qtd_mtd = monthRows.reduce((sum, r) => sum + Number(r.qtd_negocios ?? 0), 0);
+  return {
+    ...base,
+    valor_mtd,
+    qtd_mtd,
+    ticket_mtd: qtd_mtd ? valor_mtd / qtd_mtd : 0,
+  };
+};
+
+export const useKpisVendas = (sector: Sector = "avantia", selectedMonth?: number) =>
   useQuery({
-    queryKey: ["gold", "vendas_kpis_v7", sector],
+    queryKey: ["gold", "vendas_kpis_v8", sector, selectedMonthOrCurrent(selectedMonth)],
     queryFn: async (): Promise<KpisAggregated> =>
       guard(async () => {
-        const { data, error } = await supabaseGold.from("mv_kpis_gerais").select("*");
+        const [{ data, error }, { data: monthlyData, error: monthlyError }] = await Promise.all([
+          supabaseGold.from("mv_kpis_gerais").select("*"),
+          supabaseGold.from("mv_vendas_mensais_yoy").select("*"),
+        ]);
         if (error) throw error;
+        if (monthlyError) throw monthlyError;
         const rows = (data ?? []) as Record<string, unknown>[];
-        return rowToKpisAggregated(findKpiRowForSector(rows, sector));
+        return applySelectedMonthToKpis(
+          rowToKpisAggregated(findKpiRowForSector(rows, sector)),
+          (monthlyData ?? []) as Record<string, unknown>[],
+          sector,
+          selectedMonth
+        );
       }),
     staleTime: 5 * 60 * 1000,
   });
 
 /** Busca KPIs por TODOS os setores numa só query (pra alimentar metas) */
-export const useKpisPorSetor = () =>
+export const useKpisPorSetor = (selectedMonth?: number) =>
   useQuery({
-    queryKey: ["gold", "vendas_kpis_setor_v7"],
+    queryKey: ["gold", "vendas_kpis_setor_v8", selectedMonthOrCurrent(selectedMonth)],
     queryFn: async (): Promise<Record<Sector, KpisAggregated>> =>
       guard(async () => {
-        const { data, error } = await supabaseGold.from("mv_kpis_gerais").select("*");
+        const [{ data, error }, { data: monthlyData, error: monthlyError }] = await Promise.all([
+          supabaseGold.from("mv_kpis_gerais").select("*"),
+          supabaseGold.from("mv_vendas_mensais_yoy").select("*"),
+        ]);
         if (error) throw error;
+        if (monthlyError) throw monthlyError;
         const rows = (data ?? []) as Record<string, unknown>[];
+        const monthlyRows = (monthlyData ?? []) as Record<string, unknown>[];
         return {
-          avantia: rowToKpisAggregated(findKpiRowForSector(rows, "avantia")),
-          publico: rowToKpisAggregated(findKpiRowForSector(rows, "publico")),
-          privado: rowToKpisAggregated(findKpiRowForSector(rows, "privado")),
-          audio_video: rowToKpisAggregated(findKpiRowForSector(rows, "audio_video")),
+          avantia: applySelectedMonthToKpis(rowToKpisAggregated(findKpiRowForSector(rows, "avantia")), monthlyRows, "avantia", selectedMonth),
+          publico: applySelectedMonthToKpis(rowToKpisAggregated(findKpiRowForSector(rows, "publico")), monthlyRows, "publico", selectedMonth),
+          privado: applySelectedMonthToKpis(rowToKpisAggregated(findKpiRowForSector(rows, "privado")), monthlyRows, "privado", selectedMonth),
+          audio_video: applySelectedMonthToKpis(rowToKpisAggregated(findKpiRowForSector(rows, "audio_video")), monthlyRows, "audio_video", selectedMonth),
         };
       }),
     staleTime: 5 * 60 * 1000,
@@ -209,15 +272,15 @@ export interface ReferenciasVendasAno2025 {
   ticketMtd2025: number;
 }
 
-export const useReferenciasVendasAno2025 = (sector: Sector) =>
+export const useReferenciasVendasAno2025 = (sector: Sector, selectedMonth?: number) =>
   useQuery({
-    queryKey: ["gold", "refs_vendas_yoy_2025", sector],
+    queryKey: ["gold", "refs_vendas_yoy_2025", sector, selectedMonthOrCurrent(selectedMonth)],
     queryFn: async (): Promise<ReferenciasVendasAno2025> =>
       guard(async () => {
         const { data, error } = await supabaseGold.from("mv_vendas_mensais_yoy").select("*");
         if (error) throw error;
         const now = new Date();
-        const mesCorte = now.getMonth() + 1;
+        const mesCorte = selectedMonthOrCurrent(selectedMonth);
         const rows = ((data ?? []) as Record<string, unknown>[]).filter(
           (r) => Number(r.ano) === REF_VENDAS_ANO && matchSector(String(r.pipeline_nome), sector)
         );
@@ -289,24 +352,32 @@ export interface ClientePeriodo {
   valor_mtd: number;
 }
 
-export const useTopClientesPeriodo = (sector: Sector = "avantia", limit = 15) =>
+export const useTopClientesPeriodo = (sector: Sector = "avantia", limit = 15, selectedMonth?: number) =>
   useQuery({
-    queryKey: ["gold", "top_clientes_periodo_v2", sector, limit],
+    queryKey: ["gold", "top_clientes_periodo_v2", sector, limit, selectedMonthOrCurrent(selectedMonth)],
     queryFn: async (): Promise<{ ytd: ClientePeriodo[]; mtd: ClientePeriodo[] }> =>
       guard(async () => {
         const { data, error } = await supabaseGold
           .from("mv_top_clientes_periodo")
-          .select("pipeline_nome, empresa_nome, valor_ytd, valor_mtd");
+          .select("*");
         if (error) throw error;
-        const filtered = (data ?? []).filter((r: { pipeline_nome: string }) =>
-          matchSector(r.pipeline_nome, sector)
+        const currentYear = new Date().getFullYear();
+        const month = selectedMonthOrCurrent(selectedMonth);
+        const filtered = ((data ?? []) as Record<string, unknown>[]).filter((r) =>
+          Number(r.ano ?? currentYear) === currentYear &&
+          matchSector(String(r.pipeline_nome ?? ""), sector)
         );
         const agg = new Map<string, ClientePeriodo>();
         for (const r of filtered) {
-          const key = r.empresa_nome ?? "—";
+          const rowMonth = Number(r.mes ?? 0);
+          if (rowMonth < 1 || rowMonth > month) continue;
+          const key = String(
+            r.empresa_nome ?? r.cliente_nome ?? r.conta_nome ?? r.cliente ?? "—"
+          ).trim() || "—";
           const cur = agg.get(key) ?? { empresa_nome: key, valor_ytd: 0, valor_mtd: 0 };
-          cur.valor_ytd += Number(r.valor_ytd ?? 0);
-          cur.valor_mtd += Number(r.valor_mtd ?? 0);
+          const valor = Number(r.valor ?? r.valor_ganho ?? r.valor_total ?? 0);
+          cur.valor_ytd += valor;
+          if (rowMonth === month) cur.valor_mtd += valor;
           agg.set(key, cur);
         }
         const all = Array.from(agg.values());
@@ -324,26 +395,74 @@ export interface GestorPeriodo {
   gestor_nome: string;
   valor_ytd: number;
   valor_mtd: number;
+  detalhes_vendas_ytd?: VendaDetalhe[];
+  detalhes_vendas_mtd?: VendaDetalhe[];
 }
 
-export const useVendasGestorPeriodo = (sector: Sector = "avantia") =>
+export interface VendaDetalhe {
+  nome: string;
+  cliente: string;
+  gerente: string;
+  valor: number;
+}
+
+const asArray = (value: unknown): Record<string, unknown>[] => parseNegociosDetalhados(value);
+
+const detalheVendaFromRow = (
+  row: Record<string, unknown>,
+  fallbackGerente: string,
+  fallbackValor: number
+): VendaDetalhe => ({
+  nome: String(row.negocio_nome ?? row.nome_negocio ?? row.negocio ?? row.titulo ?? row.cliente_nome ?? "Negocio"),
+  cliente: String(row.cliente_nome ?? row.empresa_nome ?? row.cliente ?? row.empresa ?? "Cliente nao informado"),
+  gerente: String(row.gestor_nome ?? row.gerente_nome ?? row.gerente ?? fallbackGerente),
+  valor: Number(row.valor ?? row.valor_ganho ?? row.valor_total ?? fallbackValor ?? 0),
+});
+
+export const useVendasGestorPeriodo = (sector: Sector = "avantia", selectedMonth?: number) =>
   useQuery({
-    queryKey: ["gold", "vendas_gestor_periodo_v2", sector],
+    queryKey: ["gold", "vendas_gestor_periodo_v2", sector, selectedMonthOrCurrent(selectedMonth)],
     queryFn: async (): Promise<{ ytd: GestorPeriodo[]; mtd: GestorPeriodo[] }> =>
       guard(async () => {
         const { data, error } = await supabaseGold
           .from("mv_vendas_gestor_periodo")
-          .select("pipeline_nome, gestor_nome, valor_ytd, valor_mtd");
+            .select("*");
         if (error) throw error;
-        const filtered = (data ?? []).filter((r: { pipeline_nome: string }) =>
-          matchSector(r.pipeline_nome, sector)
+        const currentYear = new Date().getFullYear();
+        const month = selectedMonthOrCurrent(selectedMonth);
+        const filtered = ((data ?? []) as Record<string, unknown>[]).filter((r) =>
+          Number(r.ano ?? currentYear) === currentYear &&
+          matchSector(String(r.pipeline_nome ?? ""), sector)
         );
         const agg = new Map<string, GestorPeriodo>();
         for (const r of filtered) {
-          const key = (r.gestor_nome ?? "—").trim() || "—";
-          const cur = agg.get(key) ?? { gestor_nome: key, valor_ytd: 0, valor_mtd: 0 };
-          cur.valor_ytd += Number(r.valor_ytd ?? 0);
-          cur.valor_mtd += Number(r.valor_mtd ?? 0);
+          const key = String(r.gestor_nome ?? "—").trim() || "—";
+          const rowMonth = Number(r.mes ?? 0);
+          const valor = Number(r.valor ?? r.valor_ganho ?? r.valor_total ?? r.valor_ytd ?? 0);
+          const cur = agg.get(key) ?? {
+            gestor_nome: key,
+            valor_ytd: 0,
+            valor_mtd: 0,
+            detalhes_vendas_ytd: [],
+            detalhes_vendas_mtd: [],
+          };
+          const detalhes = asArray(
+            r.detalhes_vendas ?? r.detalhes_vendas_ytd ?? r.detalhes_vendas_mtd
+          );
+          const detalhesLinha = detalhes.length
+            ? detalhes.map((d) => detalheVendaFromRow(d, key, valor))
+            : valor > 0
+              ? [detalheVendaFromRow(r, key, valor)]
+              : [];
+
+          if (rowMonth > 0 && rowMonth <= month) {
+            cur.valor_ytd += valor;
+            cur.detalhes_vendas_ytd?.push(...detalhesLinha);
+          }
+          if (rowMonth === month) {
+            cur.valor_mtd += valor;
+            cur.detalhes_vendas_mtd?.push(...detalhesLinha);
+          }
           agg.set(key, cur);
         }
         const all = Array.from(agg.values());

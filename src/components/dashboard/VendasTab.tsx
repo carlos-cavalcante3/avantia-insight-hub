@@ -4,7 +4,6 @@ import {
   Bar,
   XAxis,
   YAxis,
-  Tooltip as RechartsTooltip,
   ResponsiveContainer,
   CartesianGrid,
   LabelList,
@@ -25,8 +24,9 @@ import {
   SECTOR_LABEL,
   METAS_ANUAIS,
   METAS_MENSAIS,
+  METAS_MENSAIS_POR_MES,
+  type VendaDetalhe,
 } from "@/hooks/useVendasData";
-import { usePerformanceGestor } from "@/hooks/useGerentesData";
 import {
   DollarSign,
   ListChecks,
@@ -40,10 +40,14 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { PonderadoTooltipContent } from "./PonderadoTooltipContent";
+import { kpiTileClass } from "@/lib/avantiaTheme";
 
 interface VendasTabProps {
   sector: Sector;
+  periodo: string;
 }
 
 /* ---------------- KPI strip ---------------- */
@@ -88,13 +92,13 @@ const KpiStrip = ({
       {items.map((it) => (
         <div
           key={it.label}
-          className="rounded-md border border-border/60 bg-gradient-to-br from-card to-muted/40 p-3 transition-all hover:shadow-md hover:-translate-y-0.5"
+          className={`${kpiTileClass} hover:-translate-y-0.5`}
         >
           <div className="flex items-center justify-between">
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
               {it.label}
             </p>
-            <it.icon className="h-4 w-4 text-brand-blue" />
+            <it.icon className="h-4 w-4 text-blue-500" />
           </div>
           {isLoading ? (
             <Skeleton className="h-7 w-24 mt-2" />
@@ -149,7 +153,7 @@ const BigValueCard = ({
   isLoading: boolean;
   infoTooltip?: "ponderado" | string;
 }) => (
-  <Card className="relative p-5">
+  <Card className="relative p-5 bg-slate-900 border-slate-800/60 shadow-lg">
     {infoTooltip && (
       <div className="absolute top-4 right-4">
         <TooltipProvider delayDuration={150}>
@@ -201,6 +205,20 @@ const BigValueCard = ({
 /* ---------------- Metas banner ---------------- */
 
 const SECTORS: Sector[] = ["avantia", "publico", "privado", "audio_video"];
+const MONTH_NAMES = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+];
 
 const MetaSectorThermo = ({
   sector,
@@ -216,17 +234,17 @@ const MetaSectorThermo = ({
   const widthPct = `${(pct * 100).toFixed(1)}%`;
   const pctLabel = formatPercent(pct * 100);
   return (
-    <div className="rounded-md border border-border/60 bg-card p-3 flex flex-col gap-2">
+    <div className="rounded-lg border border-slate-800/60 bg-slate-900/90 p-3 flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-xs font-semibold text-foreground truncate">{SECTOR_LABEL[sector]}</p>
       </div>
       {/* Thermometer */}
-      <div className="relative h-3 bg-muted rounded-full overflow-hidden border border-border/40">
+      <div className="relative h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700/50">
         <div
-          className="absolute inset-y-0 left-0 bg-gradient-to-r from-brand-blue/70 to-brand-blue rounded-full transition-all duration-700"
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-600 to-orange-500 rounded-full transition-all duration-700"
           style={{ width: widthPct }}
         />
-        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-semibold leading-none text-slate-600/80 tabular-nums">
+        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-semibold leading-none text-slate-200/90 tabular-nums">
           {pctLabel}
         </span>
       </div>
@@ -256,7 +274,7 @@ const MetasBanner = ({
         return (
           <div
             key={`hdr-${s}`}
-            className="rounded-md bg-gradient-to-br from-brand-blue/5 to-brand-blue/15 border border-brand-blue/20 p-3 text-left"
+            className="rounded-lg bg-gradient-to-br from-blue-600/10 to-orange-500/10 border border-blue-600/25 p-3 text-left"
           >
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
               {SECTOR_LABEL[s]}
@@ -265,7 +283,7 @@ const MetasBanner = ({
               <Skeleton className="h-6 w-40 mt-1.5" />
             ) : (
               <div className="w-full text-center my-2">
-                <p className="text-[10px] uppercase tracking-wider text-brand-blue/80 font-semibold">
+                <p className="text-[10px] uppercase tracking-wider text-blue-400 font-semibold">
                   Meta
                 </p>
                 <span className="text-xl lg:text-2xl font-black text-foreground block">
@@ -300,7 +318,63 @@ const MetasBanner = ({
 interface ValuePoint {
   label: string;
   valor: number;
+  detalhes?: VendaDetalhe[];
 }
+
+const DetailsPanel = ({ point }: { point: ValuePoint }) => {
+  const detalhes = point.detalhes?.filter((d) => Number(d.valor) > 0) ?? [];
+  return (
+    <div className="w-72 text-xs">
+      <p className="font-semibold text-slate-100">{point.label}</p>
+      <p className="mt-0.5 text-slate-400">Total: {formatBRL(Number(point.valor ?? 0))}</p>
+      <ScrollArea className="h-64 mt-2 pr-2">
+        <div className="space-y-2">
+          {detalhes.length ? (
+            detalhes.map((item, index) => (
+              <div
+                key={`${item.nome}-${index}`}
+                className="rounded-md border border-slate-800/60 bg-slate-950/80 p-2"
+              >
+                <p className="font-medium text-slate-100">{item.nome || item.cliente || "Negócio"}</p>
+                <p className="text-slate-400">
+                  {item.cliente || "Cliente não informado"} · {item.gerente || "—"}
+                </p>
+                <p className="font-semibold text-blue-400">{formatBRL(Number(item.valor ?? 0))}</p>
+              </div>
+            ))
+          ) : (
+            <p className="text-slate-400">Sem contratos detalhados para este total.</p>
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+};
+
+const DetailInfoTrigger = ({ point }: { point: ValuePoint }) => {
+  const hasDetails = (point.detalhes?.length ?? 0) > 0;
+  if (!hasDetails) return <span className="inline-block h-7 w-7" aria-hidden />;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Detalhes de ${point.label}`}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors"
+        >
+          <Info className="w-4 h-4 cursor-pointer text-slate-400 hover:text-blue-500" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="left"
+        align="start"
+        className="border-slate-800/60 bg-slate-900 p-3 shadow-xl"
+      >
+        <DetailsPanel point={point} />
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const wrapAxisLabel = (value: string, maxLineLength = 24, maxLines = 2) => {
   const words = value.trim().split(/\s+/);
@@ -330,7 +404,10 @@ const wrapAxisLabel = (value: string, maxLineLength = 24, maxLines = 2) => {
   return lines.length ? lines.slice(0, maxLines) : ["-"];
 };
 
-const ValueBarChart = ({
+const ROW_H = 44;
+
+/** Lista flex com barras neon — alinhamento perfeito do ícone (i). */
+const GerenteValueList = ({
   data,
   isLoading,
   emptyLabel,
@@ -340,14 +417,71 @@ const ValueBarChart = ({
   emptyLabel: string;
 }) => {
   if (isLoading) return <Skeleton className="h-[450px] w-full" />;
+  if (!data.length) {
+    return (
+      <div className="h-[450px] flex items-center justify-center text-sm text-slate-400">
+        {emptyLabel}
+      </div>
+    );
+  }
+  const maxValor = Math.max(...data.map((d) => d.valor), 1);
+  return (
+    <div className="space-y-1 py-1">
+      {data.map((row) => (
+        <div
+          key={row.label}
+          className="flex items-center justify-between gap-3 w-full"
+          style={{ minHeight: ROW_H }}
+        >
+          <div
+            className="w-[28%] min-w-[88px] shrink-0 text-xs font-semibold text-slate-200 truncate"
+            title={row.label}
+          >
+            {row.label}
+          </div>
+          <div className="flex-1 min-w-[60px] h-[18px] rounded-full bg-slate-800 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.8)] transition-all"
+              style={{ width: `${Math.max((row.valor / maxValor) * 100, 2)}%` }}
+            />
+          </div>
+          <span className="w-[88px] shrink-0 text-right text-xs font-semibold tabular-nums text-slate-100">
+            {formatBRL(row.valor)}
+          </span>
+          <div className="shrink-0 flex items-center justify-center w-7">
+            <DetailInfoTrigger point={row} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const ValueBarChart = ({
+  data,
+  isLoading,
+  emptyLabel,
+  detailsViaIcon = false,
+  barNeon = false,
+}: {
+  data: ValuePoint[];
+  isLoading: boolean;
+  emptyLabel: string;
+  detailsViaIcon?: boolean;
+  /** Neon laranja apenas em barras horizontais (gerentes). */
+  barNeon?: boolean;
+}) => {
+  if (detailsViaIcon) {
+    return <GerenteValueList data={data} isLoading={isLoading} emptyLabel={emptyLabel} />;
+  }
+  if (isLoading) return <Skeleton className="h-[450px] w-full" />;
   if (!data.length)
     return (
       <div className="h-[450px] flex items-center justify-center text-sm text-muted-foreground">
         {emptyLabel}
       </div>
     );
-  const chartHeight = Math.max(420, data.length * 44 + 56);
-  // Largura dinâmica do YAxis: o suficiente para o maior nome, sem deixar gap gigante.
+  const chartHeight = Math.max(420, data.length * ROW_H + 56);
   const maxLen = data.reduce((m, d) => Math.max(m, (d.label ?? "").length), 0);
   const yAxisWidth = Math.min(180, Math.max(96, maxLen * 6.5));
   return (
@@ -389,13 +523,12 @@ const ValueBarChart = ({
               );
             }}
           />
-          <RechartsTooltip cursor={false} content={() => null} wrapperStyle={{ display: "none" }} />
           <Bar
             dataKey="valor"
-            fill="hsl(var(--primary))"
+            fill={barNeon ? "#f97316" : "#3b82f6"}
             radius={[0, 6, 6, 0]}
             barSize={18}
-            className="neon-orange"
+            className={barNeon ? "drop-shadow-[0_0_8px_rgba(249,115,22,0.8)]" : undefined}
           >
             <LabelList
               dataKey="valor"
@@ -414,25 +547,21 @@ const ValueBarChart = ({
 
 /* ---------------- Page ---------------- */
 
-export const VendasTab = ({ sector }: VendasTabProps) => {
-  const kpis = useKpisVendas(sector);
-  const kpisPorSetor = useKpisPorSetor();
+export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const isYtd = periodo === "ytd";
+  const selectedMonth = isYtd ? currentMonth : Number(periodo.replace("mes-", ""));
+  const kpis = useKpisVendas(sector, selectedMonth);
+  const kpisPorSetor = useKpisPorSetor(selectedMonth);
   const pipeline = usePipelinePonderado(sector);
-  const clientes = useTopClientesPeriodo(sector, 15);
-  const gestores = useVendasGestorPeriodo(sector);
-  const refs2025 = useReferenciasVendasAno2025(sector);
-  const perfGestores = usePerformanceGestor();
+  const clientes = useTopClientesPeriodo(sector, 15, selectedMonth);
+  const gestores = useVendasGestorPeriodo(sector, selectedMonth);
+  const refs2025 = useReferenciasVendasAno2025(sector, selectedMonth);
 
   /* Soma das Propostas Colocadas (universo completo — sem whitelist).
    * Este é o NOVO indicador primário do dashboard. */
-  const propostasColocadasValor = useMemo(
-    () =>
-      (perfGestores.data ?? []).reduce(
-        (s, g) => s + Number(g.valor_propostas_ytd ?? 0),
-        0
-      ),
-    [perfGestores.data]
-  );
 
   if (kpis.error) return <ErrorState message={(kpis.error as Error).message} />;
 
@@ -591,39 +720,51 @@ export const VendasTab = ({ sector }: VendasTabProps) => {
       valor: c.valor_mtd,
     })) ?? [];
   const gestoresYtdData: ValuePoint[] =
-    gestores.data?.ytd.map((g) => ({ label: g.gestor_nome, valor: g.valor_ytd })) ?? [];
+    gestores.data?.ytd.map((g) => ({
+      label: g.gestor_nome,
+      valor: g.valor_ytd,
+      detalhes: g.detalhes_vendas_ytd,
+    })) ?? [];
   const gestoresMtdData: ValuePoint[] =
-    gestores.data?.mtd.map((g) => ({ label: g.gestor_nome, valor: g.valor_mtd })) ?? [];
+    gestores.data?.mtd.map((g) => ({
+      label: g.gestor_nome,
+      valor: g.valor_mtd,
+      detalhes: g.detalhes_vendas_mtd,
+    })) ?? [];
 
   const sectorLabel = SECTOR_LABEL[sector];
+  const selectedPeriodLabel = isYtd
+    ? "YTD (Acumulado)"
+    : `${MONTH_NAMES[Math.max(0, selectedMonth - 1)]} ${currentYear}`;
+  const isCurrentMonthBreakdown = selectedMonth === currentMonth;
+  const metasYtd = useMemo((): Record<Sector, number> => {
+    const acc: Record<Sector, number> = {
+      avantia: 0,
+      publico: 0,
+      privado: 0,
+      audio_video: 0,
+    };
+    for (let m = 1; m <= selectedMonth; m++) {
+      const row = METAS_MENSAIS_POR_MES[m];
+      if (!row) continue;
+      for (const s of SECTORS) {
+        acc[s] += row[s];
+      }
+    }
+    return acc;
+  }, [selectedMonth]);
 
-  const metasYtd: Record<Sector, number> = {
-    avantia: (METAS_ANUAIS.avantia * (new Date().getMonth() + 1)) / 12,
-    publico: (METAS_ANUAIS.publico * (new Date().getMonth() + 1)) / 12,
-    privado: (METAS_ANUAIS.privado * (new Date().getMonth() + 1)) / 12,
-    audio_video: (METAS_ANUAIS.audio_video * (new Date().getMonth() + 1)) / 12,
-  };
+  const metasMensaisSelecionadas = METAS_MENSAIS_POR_MES[selectedMonth] ?? METAS_MENSAIS;
 
   return (
     <>
-      {/* INDICADOR PRIMÁRIO (novo) — Propostas Colocadas */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <BigValueCard
-          title="Propostas Colocadas (YTD)"
-          subtitle={`Valor financeiro acumulado · ${sectorLabel}`}
-          value={
-            perfGestores.isLoading
-              ? "—"
-              : formatBRL(propostasColocadasValor)
-          }
-          isLoading={perfGestores.isLoading}
-        />
-        <BigValueCard
-          title="Valor Fechado (YTD)"
-          subtitle={`Receita ganha · ${sectorLabel}`}
-          value={kpis.data ? formatBRL(kpis.data.valor_ytd) : "—"}
-          isLoading={kpis.isLoading}
-        />
+      <div className="flex flex-col gap-2 rounded-lg border border-blue-950/50 bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-50">Vendas</h2>
+          <p className="text-xs text-slate-400">
+            {sectorLabel} · {selectedPeriodLabel}
+          </p>
+        </div>
       </div>
 
       {/* Bloco 1 - YTD */}
@@ -638,7 +779,7 @@ export const VendasTab = ({ sector }: VendasTabProps) => {
       {/* Bloco 2 - MTD */}
       <KpiStrip
         title="Vendas do Mês (MTD)"
-        subtitle={`Mês corrente · ${sectorLabel}`}
+        subtitle={`${selectedPeriodLabel} · ${sectorLabel}`}
         items={mtdItems}
         isLoading={kpis.isLoading}
         compareLoading={kpis.isLoading || refs2025.isLoading}
@@ -683,8 +824,8 @@ export const VendasTab = ({ sector }: VendasTabProps) => {
       {/* Bloco 6 - Metas Mensal */}
       <MetasBanner
         title="Metas Mensais (MTD)"
-        subtitle="Atingimento do mês corrente por setor"
-        metas={METAS_MENSAIS}
+        subtitle={`Atingimento de ${selectedPeriodLabel} por setor`}
+        metas={metasMensaisSelecionadas}
         atingidos={atingidosMtd}
         isLoading={kpisPorSetor.isLoading}
       />
@@ -704,24 +845,34 @@ export const VendasTab = ({ sector }: VendasTabProps) => {
             data={gestoresYtdData}
             isLoading={gestores.isLoading}
             emptyLabel="Sem vendas no período"
+            detailsViaIcon
           />
         </ReportCard>
       </div>
 
       {/* Blocos 9 + 10 - MTD charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ReportCard title="Top 15 Clientes (MTD)" subtitle={`Mês corrente · ${sectorLabel}`}>
+        <ReportCard title="Top 15 Clientes (MTD)" subtitle={`${selectedPeriodLabel} · ${sectorLabel}`}>
           <ValueBarChart
-            data={clientesMtdData}
+            data={isCurrentMonthBreakdown ? clientesMtdData : []}
             isLoading={clientes.isLoading}
-            emptyLabel="Sem vendas no mês"
+            emptyLabel={
+              isCurrentMonthBreakdown
+                ? "Sem vendas no mês"
+                : "Detalhamento por cliente disponível apenas para o mês corrente"
+            }
           />
         </ReportCard>
-        <ReportCard title="Vendas por Gerente (MTD)" subtitle={`Mês corrente · ${sectorLabel}`}>
+        <ReportCard title="Vendas por Gerente (MTD)" subtitle={`${selectedPeriodLabel} · ${sectorLabel}`}>
           <ValueBarChart
-            data={gestoresMtdData}
+            data={isCurrentMonthBreakdown ? gestoresMtdData : []}
             isLoading={gestores.isLoading}
-            emptyLabel="Sem vendas no mês"
+            emptyLabel={
+              isCurrentMonthBreakdown
+                ? "Sem vendas no mês"
+                : "Detalhamento por gerente disponível apenas para o mês corrente"
+            }
+            detailsViaIcon
           />
         </ReportCard>
       </div>
