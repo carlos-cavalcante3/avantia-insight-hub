@@ -562,6 +562,8 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
   const clientes = useTopClientesPeriodo(sector, 15, selectedMonth);
   const gestores = useVendasGestorPeriodo(sector, selectedMonth);
   const refs2025 = useReferenciasVendasAno2025(sector, selectedMonth);
+  const composicao = useVendasComposicaoMesAMes(sector, selectedMonth);
+
 
   /* Soma das Propostas Colocadas (universo completo — sem whitelist).
    * Este é o NOVO indicador primário do dashboard. */
