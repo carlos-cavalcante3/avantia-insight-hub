@@ -442,9 +442,9 @@ const GerenteValueList = ({
           >
             {row.label}
           </div>
-          <div className="flex-1 min-w-[60px] h-[18px] rounded-full bg-slate-800 overflow-hidden">
+          <div className="flex-1 min-w-[60px] h-[18px]">
             <div
-              className="h-full rounded-full bg-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.8)] transition-all"
+              className="h-full rounded-r-md bg-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.8)] transition-all"
               style={{ width: `${Math.max((row.valor / maxValor) * 100, 2)}%` }}
             />
           </div>
@@ -741,7 +741,7 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
   const selectedPeriodLabel = isYtd
     ? "YTD (Acumulado)"
     : `${MONTH_NAMES[Math.max(0, selectedMonth - 1)]} ${currentYear}`;
-  const isCurrentMonthBreakdown = selectedMonth === currentMonth;
+  
   const metasYtd = useMemo((): Record<Sector, number> => {
     const acc: Record<Sector, number> = {
       avantia: 0,
@@ -887,25 +887,18 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ReportCard title="Top 15 Clientes (MTD)" subtitle={`${selectedPeriodLabel} · ${sectorLabel}`}>
           <ValueBarChart
-            data={isCurrentMonthBreakdown ? clientesMtdData : []}
+            data={clientesMtdData}
             isLoading={clientes.isLoading}
-            emptyLabel={
-              isCurrentMonthBreakdown
-                ? "Sem vendas no mês"
-                : "Detalhamento por cliente disponível apenas para o mês corrente"
-            }
+            emptyLabel="Sem vendas no período"
           />
         </ReportCard>
         <ReportCard title="Vendas por Gerente (MTD)" subtitle={`${selectedPeriodLabel} · ${sectorLabel}`}>
           <ValueBarChart
-            data={isCurrentMonthBreakdown ? gestoresMtdData : []}
+            data={gestoresMtdData}
             isLoading={gestores.isLoading}
-            emptyLabel={
-              isCurrentMonthBreakdown
-                ? "Sem vendas no mês"
-                : "Detalhamento por gerente disponível apenas para o mês corrente"
-            }
+            emptyLabel="Sem vendas no período"
             detailsViaIcon
+            barNeon
           />
         </ReportCard>
       </div>
