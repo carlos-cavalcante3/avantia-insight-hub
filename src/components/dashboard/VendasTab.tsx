@@ -22,6 +22,7 @@ import {
   useTopClientesPeriodo,
   useVendasGestorPeriodo,
   useReferenciasVendasAno2025,
+  useVendasComposicaoMesAMes,
   type Sector,
   SECTOR_LABEL,
   METAS_ANUAIS,
