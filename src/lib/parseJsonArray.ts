@@ -13,7 +13,7 @@ export const parseNegociosDetalhados = (data: unknown): Record<string, unknown>[
   }
   if (Array.isArray(parsed)) return parsed as Record<string, unknown>[];
   if (parsed && typeof parsed === "object") {
-    return Object.values(parsed as Record<string, unknown>);
+    return Object.values(parsed as Record<string, unknown>) as Record<string, unknown>[];
   }
   return [];
 };

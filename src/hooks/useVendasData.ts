@@ -200,27 +200,85 @@ const applySelectedMonthToKpis = (
 ): KpisAggregated => {
   const month = selectedMonthOrCurrent(selectedMonth);
   const year = new Date().getFullYear();
-  const monthRows = rows.filter(
-    (r) => Number(r.ano) === year && Number(r.mes) === month && matchSector(String(r.pipeline_nome), sector)
+  const ytdVendas = rows.filter(
+    (r) =>
+      Number(r.ano) === year &&
+      Number(r.mes) <= month &&
+      matchSector(String(r.pipeline_nome), sector)
   );
+  const ytdOport = oportData.filter(
+    (r) =>
+      Number(r.ano) === year &&
+      Number(r.mes) <= month &&
+      matchSector(String(r.pipeline_nome), sector)
+  );
+  const valor_ytd = ytdVendas.reduce((s, r) => s + Number(r.receita_total ?? 0), 0);
+  const qtd_ytd = ytdVendas.reduce((s, r) => s + Number(r.qtd_negocios ?? 0), 0);
+  const oport_ytd = ytdOport.reduce((s, r) => s + Number(r.qtd_geradas ?? 0), 0);
+
+  const monthRows = ytdVendas.filter((r) => Number(r.mes) === month);
   const valor_mtd = monthRows.reduce((sum, r) => sum + Number(r.receita_total ?? 0), 0);
   const qtd_mtd = monthRows.reduce((sum, r) => sum + Number(r.qtd_negocios ?? 0), 0);
-  const oport_mtd = oportData
-    .filter(
-      (r) =>
-        Number(r.ano) === year &&
-        Number(r.mes) === month &&
-        matchSector(String(r.pipeline_nome), sector)
-    )
+  const oport_mtd = ytdOport
+    .filter((r) => Number(r.mes) === month)
     .reduce((sum, r) => sum + Number(r.qtd_geradas ?? 0), 0);
   return {
     ...base,
+    valor_ytd,
+    qtd_ytd,
+    ticket_ytd: qtd_ytd > 0 ? valor_ytd / qtd_ytd : 0,
+    win_rate_ytd: oport_ytd > 0 ? (qtd_ytd / oport_ytd) * 100 : 0,
     valor_mtd,
     qtd_mtd,
-    ticket_mtd: qtd_mtd ? valor_mtd / qtd_mtd : 0,
+    ticket_mtd: qtd_mtd > 0 ? valor_mtd / qtd_mtd : 0,
     win_rate_mtd: oport_mtd > 0 ? (qtd_mtd / oport_mtd) * 100 : 0,
   };
 };
+
+/* --------------- Composição mensal (única + recorrente) --------------- */
+
+const MONTH_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+export interface ComposicaoMesPoint {
+  label: string;
+  unica: number;
+  recorrente: number;
+}
+
+export const useVendasComposicaoMesAMes = (sector: Sector = "avantia", selectedMonth?: number) =>
+  useQuery({
+    queryKey: ["gold", "vendas_composicao_mes_v1", sector, selectedMonthOrCurrent(selectedMonth)],
+    queryFn: async (): Promise<ComposicaoMesPoint[]> =>
+      guard(async () => {
+        const { data, error } = await supabaseGold.from("mv_vendas_mensais_yoy").select("*");
+        if (error) throw error;
+        const year = new Date().getFullYear();
+        const month = selectedMonthOrCurrent(selectedMonth);
+        const rows = ((data ?? []) as Record<string, unknown>[]).filter(
+          (r) =>
+            Number(r.ano) === year &&
+            Number(r.mes) >= 1 &&
+            Number(r.mes) <= month &&
+            matchSector(String(r.pipeline_nome ?? ""), sector)
+        );
+        const agg = new Map<number, ComposicaoMesPoint>();
+        for (let m = 1; m <= month; m++) {
+          agg.set(m, { label: MONTH_SHORT[m - 1], unica: 0, recorrente: 0 });
+        }
+        for (const r of rows) {
+          const m = Number(r.mes);
+          const cur = agg.get(m);
+          if (!cur) continue;
+          cur.unica += Number(r.receita_unica ?? 0);
+          cur.recorrente += Number(r.receita_recorrente ?? 0);
+        }
+        return Array.from(agg.entries())
+          .sort((a, b) => a[0] - b[0])
+          .map(([, v]) => v);
+      }),
+    staleTime: 5 * 60 * 1000,
+  });
+
 
 export const useKpisVendas = (sector: Sector = "avantia", selectedMonth?: number) =>
   useQuery({
