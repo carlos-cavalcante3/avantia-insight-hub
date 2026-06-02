@@ -200,24 +200,37 @@ const applySelectedMonthToKpis = (
 ): KpisAggregated => {
   const month = selectedMonthOrCurrent(selectedMonth);
   const year = new Date().getFullYear();
-  const monthRows = rows.filter(
-    (r) => Number(r.ano) === year && Number(r.mes) === month && matchSector(String(r.pipeline_nome), sector)
+  const ytdVendas = rows.filter(
+    (r) =>
+      Number(r.ano) === year &&
+      Number(r.mes) <= month &&
+      matchSector(String(r.pipeline_nome), sector)
   );
+  const ytdOport = oportData.filter(
+    (r) =>
+      Number(r.ano) === year &&
+      Number(r.mes) <= month &&
+      matchSector(String(r.pipeline_nome), sector)
+  );
+  const valor_ytd = ytdVendas.reduce((s, r) => s + Number(r.receita_total ?? 0), 0);
+  const qtd_ytd = ytdVendas.reduce((s, r) => s + Number(r.qtd_negocios ?? 0), 0);
+  const oport_ytd = ytdOport.reduce((s, r) => s + Number(r.qtd_geradas ?? 0), 0);
+
+  const monthRows = ytdVendas.filter((r) => Number(r.mes) === month);
   const valor_mtd = monthRows.reduce((sum, r) => sum + Number(r.receita_total ?? 0), 0);
   const qtd_mtd = monthRows.reduce((sum, r) => sum + Number(r.qtd_negocios ?? 0), 0);
-  const oport_mtd = oportData
-    .filter(
-      (r) =>
-        Number(r.ano) === year &&
-        Number(r.mes) === month &&
-        matchSector(String(r.pipeline_nome), sector)
-    )
+  const oport_mtd = ytdOport
+    .filter((r) => Number(r.mes) === month)
     .reduce((sum, r) => sum + Number(r.qtd_geradas ?? 0), 0);
   return {
     ...base,
+    valor_ytd,
+    qtd_ytd,
+    ticket_ytd: qtd_ytd > 0 ? valor_ytd / qtd_ytd : 0,
+    win_rate_ytd: oport_ytd > 0 ? (qtd_ytd / oport_ytd) * 100 : 0,
     valor_mtd,
     qtd_mtd,
-    ticket_mtd: qtd_mtd ? valor_mtd / qtd_mtd : 0,
+    ticket_mtd: qtd_mtd > 0 ? valor_mtd / qtd_mtd : 0,
     win_rate_mtd: oport_mtd > 0 ? (qtd_mtd / oport_mtd) * 100 : 0,
   };
 };
