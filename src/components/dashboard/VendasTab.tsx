@@ -763,15 +763,6 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
 
   return (
     <>
-      <div className="flex flex-col gap-2 rounded-lg border border-blue-950/50 bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-50">Vendas</h2>
-          <p className="text-xs text-slate-400">
-            {sectorLabel} · {selectedPeriodLabel}
-          </p>
-        </div>
-      </div>
-
       {/* Bloco 1 - YTD */}
       <KpiStrip
         title="Vendas do Ano (YTD)"
@@ -790,8 +781,45 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
         compareLoading={kpis.isLoading || refs2025.isLoading}
       />
 
+      {/* Composição de Vendas Mês a Mês */}
+      <ReportCard
+        title="Composição de Vendas Mês a Mês"
+        subtitle={`Valor único × recorrente · ${sectorLabel}`}
+      >
+        {composicao.isLoading ? (
+          <Skeleton className="h-[220px] w-full" />
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={composicao.data ?? []} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+              <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+              <YAxis
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={11}
+                tickFormatter={(v: number) => formatBRL(Number(v))}
+                width={56}
+              />
+              <RTooltip
+                cursor={{ fill: "hsl(var(--muted) / 0.2)" }}
+                contentStyle={{
+                  background: "hsl(var(--popover))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+                formatter={(value: number, name: string) => [formatBRL(Number(value)), name]}
+              />
+              <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="unica" name="Valor Único" stackId="a" fill="#3b82f6" radius={[0, 0, 4, 4]} maxBarSize={40} />
+              <Bar dataKey="recorrente" name="Recorrente" stackId="a" fill="#f97316" radius={[4, 4, 0, 0]} maxBarSize={40} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </ReportCard>
+
       {/* Blocos 3 + 4 - Pipeline */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
         <BigValueCard
           title="Valor Total do Pipeline"
           subtitle={`Negócios em aberto · ${sectorLabel}`}
