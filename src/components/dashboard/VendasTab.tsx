@@ -7,6 +7,8 @@ import {
   ResponsiveContainer,
   CartesianGrid,
   LabelList,
+  Tooltip as RTooltip,
+  Legend,
 } from "recharts";
 import { ReportCard } from "./ReportCard";
 import { Skeleton } from "@/components/ui/skeleton";
