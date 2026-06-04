@@ -858,25 +858,148 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
 
   const metasMensaisSelecionadas = METAS_MENSAIS_POR_MES[selectedMonth] ?? METAS_MENSAIS;
 
+  const ytdValor = ytdItems[0];
+  const mtdValor = mtdItems[0];
+  const ytdQtd = ytdItems[1];
+  const ytdTicket = ytdItems[2];
+  const ytdTaxa = ytdItems[3];
+
+  const sectorMetaKeys: SectorMetaKey[] = ["publico", "privado", "av"];
+  const sectorToMetaKey: Record<SectorMetaKey, Sector> = {
+    publico: "publico",
+    privado: "privado",
+    av: "audio_video",
+  };
+  const ytdSectorValor = (k: SectorMetaKey) => kpisPorSetor.data?.[sectorToMetaKey[k]].valor_ytd ?? 0;
+  const mtdSectorValor = (k: SectorMetaKey) => kpisPorSetor.data?.[sectorToMetaKey[k]].valor_mtd ?? 0;
+  const metaYtdProporcional = (k: SectorMetaKey) => METAS[k].anual * (selectedMonth / 12);
+
+  const composicaoData = (composicao.data ?? []).map((d) => ({
+    ...d,
+    receita_total: d.unica + d.recorrente,
+  }));
+
   return (
     <>
-      {/* Bloco 1 - YTD */}
-      <KpiStrip
+      {/* Bloco 1 - YTD: Valor Fechado + 3 setores */}
+      <ReportCard
         title="Vendas do Ano (YTD)"
-        subtitle={`Acumulado ${new Date().getFullYear()} · ${sectorLabel}`}
-        items={ytdItems}
-        isLoading={kpis.isLoading}
-        compareLoading={kpis.isLoading || refs2025.isLoading}
-      />
+        subtitle={`Acumulado ${currentYear} · ${sectorLabel}`}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className={kpiTileClass}>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Valor Fechado</p>
+              <DollarSign className="h-4 w-4 text-blue-500" />
+            </div>
+            {kpis.isLoading ? (
+              <Skeleton className="h-7 w-24 mt-2" />
+            ) : (
+              <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">
+                {ytdValor.value}
+              </p>
+            )}
+            {!kpis.isLoading && !refs2025.isLoading && (
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className="text-xs font-medium text-slate-500">
+                  {ytdValor.previousYear}: {formatKpiPrevious(ytdValor.previousKind, ytdValor.previousAbsolute)}
+                </span>
+                <span className={`text-xs font-bold ${ytdValor.deltaPct >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                  {ytdValor.deltaPct >= 0 ? "+" : ""}{formatPercent(ytdValor.deltaPct)}
+                </span>
+              </div>
+            )}
+          </div>
+          {sectorMetaKeys.map((k) => (
+            <SectorYtdCard
+              key={`ytd-${k}`}
+              sectorKey={k}
+              valor={ytdSectorValor(k)}
+              metaYtd={metaYtdProporcional(k)}
+            />
+          ))}
+        </div>
+      </ReportCard>
 
-      {/* Bloco 2 - MTD */}
-      <KpiStrip
+      {/* Bloco 2 - MTD: Valor Fechado + 3 setores */}
+      <ReportCard
         title="Vendas do Mês (MTD)"
         subtitle={`${selectedPeriodLabel} · ${sectorLabel}`}
-        items={mtdItems}
-        isLoading={kpis.isLoading}
-        compareLoading={kpis.isLoading || refs2025.isLoading}
-      />
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className={kpiTileClass}>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Valor Fechado</p>
+              <DollarSign className="h-4 w-4 text-blue-500" />
+            </div>
+            {kpis.isLoading ? (
+              <Skeleton className="h-7 w-24 mt-2" />
+            ) : (
+              <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">
+                {mtdValor.value}
+              </p>
+            )}
+            {!kpis.isLoading && !refs2025.isLoading && (
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className="text-xs font-medium text-slate-500">
+                  {mtdValor.previousYear}: {formatKpiPrevious(mtdValor.previousKind, mtdValor.previousAbsolute)}
+                </span>
+                <span className={`text-xs font-bold ${mtdValor.deltaPct >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                  {mtdValor.deltaPct >= 0 ? "+" : ""}{formatPercent(mtdValor.deltaPct)}
+                </span>
+              </div>
+            )}
+          </div>
+          {sectorMetaKeys.map((k) => (
+            <SectorMtdCard key={`mtd-${k}`} sectorKey={k} valor={mtdSectorValor(k)} />
+          ))}
+        </div>
+      </ReportCard>
+
+      {/* Nova linha - Qtd Negócios, Ticket Médio, Taxa de Conversão (YTD) */}
+      <ReportCard title="Indicadores YTD" subtitle={`Qtd · Ticket · Conversão · ${sectorLabel}`}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className={kpiTileClass}>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{ytdQtd.label}</p>
+              <ListChecks className="h-4 w-4 text-blue-500" />
+            </div>
+            {kpis.isLoading ? (
+              <Skeleton className="h-7 w-24 mt-2" />
+            ) : (
+              <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">{ytdQtd.value}</p>
+            )}
+          </div>
+          <div className={kpiTileClass}>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{ytdTicket.label}</p>
+              <Receipt className="h-4 w-4 text-blue-500" />
+            </div>
+            {kpis.isLoading ? (
+              <Skeleton className="h-7 w-24 mt-2" />
+            ) : (
+              <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">{ytdTicket.value}</p>
+            )}
+          </div>
+          <div className={kpiTileClass}>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{ytdTaxa.label}</p>
+              <Target className="h-4 w-4 text-blue-500" />
+            </div>
+            {kpis.isLoading ? (
+              <Skeleton className="h-7 w-24 mt-2" />
+            ) : (
+              <>
+                <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">{ytdTaxa.value}</p>
+                <div className="mt-1 flex flex-col text-xs text-muted-foreground tabular-nums">
+                  <span>Propostas: <strong className="text-slate-200">{formatNumber(kpis.data?.oport_ytd ?? 0)}</strong></span>
+                  <span>Vendas: <strong className="text-slate-200">{formatNumber(kpis.data?.qtd_ytd ?? 0)}</strong></span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </ReportCard>
 
       {/* Composição de Vendas Mês a Mês */}
       <ReportCard
@@ -886,8 +1009,8 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
         {composicao.isLoading ? (
           <Skeleton className="h-[220px] w-full" />
         ) : (
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={composicao.data ?? []} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={composicaoData} margin={{ top: 24, right: 16, left: 8, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
               <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
               <YAxis
@@ -908,7 +1031,15 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
               />
               <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="unica" name="Valor Único" stackId="a" fill="#3b82f6" radius={[0, 0, 4, 4]} maxBarSize={40} />
-              <Bar dataKey="recorrente" name="Recorrente" stackId="a" fill="#f97316" radius={[4, 4, 0, 0]} maxBarSize={40} />
+              <Bar dataKey="recorrente" name="Recorrente" stackId="a" fill="#f97316" radius={[4, 4, 0, 0]} maxBarSize={40}>
+                <LabelList
+                  dataKey="receita_total"
+                  position="top"
+                  fill="hsl(var(--foreground))"
+                  fontSize={11}
+                  formatter={(v: number) => formatBRL(Number(v))}
+                />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -933,32 +1064,6 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
         />
       </div>
 
-      {/* Bloco 5 - Metas Anuais (renomeado) */}
-      <MetasBanner
-        title="Metas Anuais"
-        subtitle="Valor atingido por setor (acumulado YTD)"
-        metas={METAS_ANUAIS}
-        atingidos={atingidosYtd}
-        isLoading={kpisPorSetor.isLoading}
-      />
-
-      {/* NOVO - Meta YTD (esperado acumulado até o momento) */}
-      <MetasBanner
-        title="Meta YTD"
-        subtitle="Desempenho esperado acumulado até o momento (proporcional aos meses transcorridos)"
-        metas={metasYtd}
-        atingidos={atingidosYtd}
-        isLoading={kpisPorSetor.isLoading}
-      />
-
-      {/* Bloco 6 - Metas Mensal */}
-      <MetasBanner
-        title="Metas Mensais (MTD)"
-        subtitle={`Atingimento de ${selectedPeriodLabel} por setor`}
-        metas={metasMensaisSelecionadas}
-        atingidos={atingidosMtd}
-        isLoading={kpisPorSetor.isLoading}
-      />
 
 
       {/* Blocos 7 + 8 - YTD charts */}
