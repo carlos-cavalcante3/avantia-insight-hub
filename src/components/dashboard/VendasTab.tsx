@@ -325,24 +325,23 @@ interface ValuePoint {
 }
 
 const DetailsPanel = ({ point }: { point: ValuePoint }) => {
-  const detalhes = point.detalhes?.filter((d) => Number(d.valor) > 0) ?? [];
+  const detalhes = (point.detalhes?.filter((d) => Number(d.valor) > 0) ?? [])
+    .slice()
+    .sort((a, b) => Number(b.valor) - Number(a.valor));
   return (
     <div className="w-72 text-xs">
       <p className="font-semibold text-slate-100">{point.label}</p>
       <p className="mt-0.5 text-slate-400">Total: {formatBRL(Number(point.valor ?? 0))}</p>
       <ScrollArea className="h-64 mt-2 pr-2">
-        <div className="space-y-2">
+        <div className="space-y-1">
           {detalhes.length ? (
             detalhes.map((item, index) => (
               <div
                 key={`${item.nome}-${index}`}
-                className="rounded-md border border-slate-800/60 bg-slate-950/80 p-2"
+                className="flex items-center justify-between gap-2 rounded-md border border-slate-800/60 bg-slate-950/80 px-2 py-1.5"
               >
-                <p className="font-medium text-slate-100">{item.nome || item.cliente || "Negócio"}</p>
-                <p className="text-slate-400">
-                  {item.cliente || "Cliente não informado"} · {item.gerente || "—"}
-                </p>
-                <p className="font-semibold text-blue-400">{formatBRL(Number(item.valor ?? 0))}</p>
+                <span className="truncate text-slate-100">{item.cliente || item.nome || "Cliente não informado"}</span>
+                <span className="shrink-0 font-semibold text-blue-400 tabular-nums">{formatBRL(Number(item.valor ?? 0))}</span>
               </div>
             ))
           ) : (
