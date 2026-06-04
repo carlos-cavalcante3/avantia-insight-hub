@@ -52,10 +52,12 @@ export interface KpisAggregated {
   qtd_ytd: number;
   ticket_ytd: number;
   win_rate_ytd: number;
+  oport_ytd: number;
   valor_mtd: number;
   qtd_mtd: number;
   ticket_mtd: number;
   win_rate_mtd: number;
+  oport_mtd: number;
   /** Média ponderada por qtd_ganhos_ytd; null se a view não expuser a coluna. */
   win_rate_ytd_ano_anterior: number | null;
   win_rate_mtd_ano_anterior: number | null;
@@ -151,10 +153,12 @@ const rowToKpisAggregated = (row: Record<string, unknown> | null): KpisAggregate
       qtd_ytd: 0,
       ticket_ytd: 0,
       win_rate_ytd: 0,
+      oport_ytd: 0,
       valor_mtd: 0,
       qtd_mtd: 0,
       ticket_mtd: 0,
       win_rate_mtd: 0,
+      oport_mtd: 0,
       win_rate_ytd_ano_anterior: null,
       win_rate_mtd_ano_anterior: null,
     };
@@ -177,10 +181,12 @@ const rowToKpisAggregated = (row: Record<string, unknown> | null): KpisAggregate
     qtd_ytd,
     ticket_ytd: qtd_ytd ? valor_ytd / qtd_ytd : 0,
     win_rate_ytd,
+    oport_ytd,
     valor_mtd,
     qtd_mtd,
     ticket_mtd: qtd_mtd ? valor_mtd / qtd_mtd : 0,
     win_rate_mtd,
+    oport_mtd,
     win_rate_ytd_ano_anterior: null,
     win_rate_mtd_ano_anterior: null,
   };
@@ -232,6 +238,8 @@ const applySelectedMonthToKpis = (
     qtd_mtd,
     ticket_mtd: qtd_mtd > 0 ? valor_mtd / qtd_mtd : 0,
     win_rate_mtd: oport_mtd > 0 ? (qtd_mtd / oport_mtd) * 100 : 0,
+    oport_ytd,
+    oport_mtd,
   };
 };
 

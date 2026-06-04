@@ -208,6 +208,21 @@ const BigValueCard = ({
 /* ---------------- Metas banner ---------------- */
 
 const SECTORS: Sector[] = ["avantia", "publico", "privado", "audio_video"];
+
+/** Metas reais inline por setor (anual e mensal MTD). */
+const METAS = {
+  publico: { anual: 10_000_000, mtd: 800_000 },
+  privado: { anual: 5_000_000, mtd: 400_000 },
+  av: { anual: 3_000_000, mtd: 250_000 },
+} as const;
+
+type SectorMetaKey = keyof typeof METAS;
+const SECTOR_META_LABEL: Record<SectorMetaKey, string> = {
+  publico: "Público",
+  privado: "Privado",
+  av: "Áudio e Vídeo",
+};
+
 const MONTH_NAMES = [
   "Janeiro",
   "Fevereiro",
@@ -222,6 +237,89 @@ const MONTH_NAMES = [
   "Novembro",
   "Dezembro",
 ];
+
+const ProgressBar = ({ pct, label }: { pct: number; label: string }) => {
+  const clamped = Math.min(Math.max(pct, 0), 1);
+  return (
+    <div>
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-0.5">
+        <span>{label}</span>
+        <span className="tabular-nums font-semibold text-slate-300">{formatPercent(clamped * 100)}</span>
+      </div>
+      <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700/50">
+        <div
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-600 to-orange-500 rounded-full transition-all duration-700"
+          style={{ width: `${(clamped * 100).toFixed(1)}%` }}
+        />
+      </div>
+    </div>
+  );
+};
+
+const SectorYtdCard = ({
+  sectorKey,
+  valor,
+  metaYtd,
+}: {
+  sectorKey: SectorMetaKey;
+  valor: number;
+  metaYtd: number;
+}) => {
+  const meta = METAS[sectorKey];
+  return (
+    <div className={kpiTileClass}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+          {SECTOR_META_LABEL[sectorKey]}
+        </p>
+        <div className="text-right">
+          <p className="text-[9px] uppercase tracking-wider text-blue-400 font-semibold">Meta Anual</p>
+          <p className="text-[11px] font-bold text-foreground tabular-nums">{formatBRL(meta.anual)}</p>
+        </div>
+      </div>
+      <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">
+        {formatBRL(valor)}
+      </p>
+      <div className="mt-2 space-y-2">
+        <ProgressBar pct={valor / meta.anual} label="vs Meta Anual" />
+        <ProgressBar pct={metaYtd > 0 ? valor / metaYtd : 0} label="vs Meta YTD" />
+      </div>
+      <p className="mt-1 text-[10px] text-right text-muted-foreground">
+        Meta YTD: <span className="font-semibold text-slate-300 tabular-nums">{formatBRL(metaYtd)}</span>
+      </p>
+    </div>
+  );
+};
+
+const SectorMtdCard = ({
+  sectorKey,
+  valor,
+}: {
+  sectorKey: SectorMetaKey;
+  valor: number;
+}) => {
+  const meta = METAS[sectorKey];
+  return (
+    <div className={kpiTileClass}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+          {SECTOR_META_LABEL[sectorKey]}
+        </p>
+        <div className="text-right">
+          <p className="text-[9px] uppercase tracking-wider text-blue-400 font-semibold">Meta Mensal</p>
+          <p className="text-[11px] font-bold text-foreground tabular-nums">{formatBRL(meta.mtd)}</p>
+        </div>
+      </div>
+      <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">
+        {formatBRL(valor)}
+      </p>
+      <div className="mt-2">
+        <ProgressBar pct={valor / meta.mtd} label="vs Meta Mensal" />
+      </div>
+    </div>
+  );
+};
+
 
 const MetaSectorThermo = ({
   sector,
@@ -325,24 +423,23 @@ interface ValuePoint {
 }
 
 const DetailsPanel = ({ point }: { point: ValuePoint }) => {
-  const detalhes = point.detalhes?.filter((d) => Number(d.valor) > 0) ?? [];
+  const detalhes = (point.detalhes?.filter((d) => Number(d.valor) > 0) ?? [])
+    .slice()
+    .sort((a, b) => Number(b.valor) - Number(a.valor));
   return (
     <div className="w-72 text-xs">
       <p className="font-semibold text-slate-100">{point.label}</p>
       <p className="mt-0.5 text-slate-400">Total: {formatBRL(Number(point.valor ?? 0))}</p>
       <ScrollArea className="h-64 mt-2 pr-2">
-        <div className="space-y-2">
+        <div className="space-y-1">
           {detalhes.length ? (
             detalhes.map((item, index) => (
               <div
                 key={`${item.nome}-${index}`}
-                className="rounded-md border border-slate-800/60 bg-slate-950/80 p-2"
+                className="flex items-center justify-between gap-2 rounded-md border border-slate-800/60 bg-slate-950/80 px-2 py-1.5"
               >
-                <p className="font-medium text-slate-100">{item.nome || item.cliente || "Negócio"}</p>
-                <p className="text-slate-400">
-                  {item.cliente || "Cliente não informado"} · {item.gerente || "—"}
-                </p>
-                <p className="font-semibold text-blue-400">{formatBRL(Number(item.valor ?? 0))}</p>
+                <span className="truncate text-slate-100">{item.cliente || item.nome || "Cliente não informado"}</span>
+                <span className="shrink-0 font-semibold text-blue-400 tabular-nums">{formatBRL(Number(item.valor ?? 0))}</span>
               </div>
             ))
           ) : (
@@ -761,25 +858,148 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
 
   const metasMensaisSelecionadas = METAS_MENSAIS_POR_MES[selectedMonth] ?? METAS_MENSAIS;
 
+  const ytdValor = ytdItems[0];
+  const mtdValor = mtdItems[0];
+  const ytdQtd = ytdItems[1];
+  const ytdTicket = ytdItems[2];
+  const ytdTaxa = ytdItems[3];
+
+  const sectorMetaKeys: SectorMetaKey[] = ["publico", "privado", "av"];
+  const sectorToMetaKey: Record<SectorMetaKey, Sector> = {
+    publico: "publico",
+    privado: "privado",
+    av: "audio_video",
+  };
+  const ytdSectorValor = (k: SectorMetaKey) => kpisPorSetor.data?.[sectorToMetaKey[k]].valor_ytd ?? 0;
+  const mtdSectorValor = (k: SectorMetaKey) => kpisPorSetor.data?.[sectorToMetaKey[k]].valor_mtd ?? 0;
+  const metaYtdProporcional = (k: SectorMetaKey) => METAS[k].anual * (selectedMonth / 12);
+
+  const composicaoData = (composicao.data ?? []).map((d) => ({
+    ...d,
+    receita_total: d.unica + d.recorrente,
+  }));
+
   return (
     <>
-      {/* Bloco 1 - YTD */}
-      <KpiStrip
+      {/* Bloco 1 - YTD: Valor Fechado + 3 setores */}
+      <ReportCard
         title="Vendas do Ano (YTD)"
-        subtitle={`Acumulado ${new Date().getFullYear()} · ${sectorLabel}`}
-        items={ytdItems}
-        isLoading={kpis.isLoading}
-        compareLoading={kpis.isLoading || refs2025.isLoading}
-      />
+        subtitle={`Acumulado ${currentYear} · ${sectorLabel}`}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className={kpiTileClass}>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Valor Fechado</p>
+              <DollarSign className="h-4 w-4 text-blue-500" />
+            </div>
+            {kpis.isLoading ? (
+              <Skeleton className="h-7 w-24 mt-2" />
+            ) : (
+              <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">
+                {ytdValor.value}
+              </p>
+            )}
+            {!kpis.isLoading && !refs2025.isLoading && (
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className="text-xs font-medium text-slate-500">
+                  {ytdValor.previousYear}: {formatKpiPrevious(ytdValor.previousKind, ytdValor.previousAbsolute)}
+                </span>
+                <span className={`text-xs font-bold ${ytdValor.deltaPct >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                  {ytdValor.deltaPct >= 0 ? "+" : ""}{formatPercent(ytdValor.deltaPct)}
+                </span>
+              </div>
+            )}
+          </div>
+          {sectorMetaKeys.map((k) => (
+            <SectorYtdCard
+              key={`ytd-${k}`}
+              sectorKey={k}
+              valor={ytdSectorValor(k)}
+              metaYtd={metaYtdProporcional(k)}
+            />
+          ))}
+        </div>
+      </ReportCard>
 
-      {/* Bloco 2 - MTD */}
-      <KpiStrip
+      {/* Bloco 2 - MTD: Valor Fechado + 3 setores */}
+      <ReportCard
         title="Vendas do Mês (MTD)"
         subtitle={`${selectedPeriodLabel} · ${sectorLabel}`}
-        items={mtdItems}
-        isLoading={kpis.isLoading}
-        compareLoading={kpis.isLoading || refs2025.isLoading}
-      />
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className={kpiTileClass}>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Valor Fechado</p>
+              <DollarSign className="h-4 w-4 text-blue-500" />
+            </div>
+            {kpis.isLoading ? (
+              <Skeleton className="h-7 w-24 mt-2" />
+            ) : (
+              <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">
+                {mtdValor.value}
+              </p>
+            )}
+            {!kpis.isLoading && !refs2025.isLoading && (
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className="text-xs font-medium text-slate-500">
+                  {mtdValor.previousYear}: {formatKpiPrevious(mtdValor.previousKind, mtdValor.previousAbsolute)}
+                </span>
+                <span className={`text-xs font-bold ${mtdValor.deltaPct >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                  {mtdValor.deltaPct >= 0 ? "+" : ""}{formatPercent(mtdValor.deltaPct)}
+                </span>
+              </div>
+            )}
+          </div>
+          {sectorMetaKeys.map((k) => (
+            <SectorMtdCard key={`mtd-${k}`} sectorKey={k} valor={mtdSectorValor(k)} />
+          ))}
+        </div>
+      </ReportCard>
+
+      {/* Nova linha - Qtd Negócios, Ticket Médio, Taxa de Conversão (YTD) */}
+      <ReportCard title="Indicadores YTD" subtitle={`Qtd · Ticket · Conversão · ${sectorLabel}`}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className={kpiTileClass}>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{ytdQtd.label}</p>
+              <ListChecks className="h-4 w-4 text-blue-500" />
+            </div>
+            {kpis.isLoading ? (
+              <Skeleton className="h-7 w-24 mt-2" />
+            ) : (
+              <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">{ytdQtd.value}</p>
+            )}
+          </div>
+          <div className={kpiTileClass}>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{ytdTicket.label}</p>
+              <Receipt className="h-4 w-4 text-blue-500" />
+            </div>
+            {kpis.isLoading ? (
+              <Skeleton className="h-7 w-24 mt-2" />
+            ) : (
+              <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">{ytdTicket.value}</p>
+            )}
+          </div>
+          <div className={kpiTileClass}>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{ytdTaxa.label}</p>
+              <Target className="h-4 w-4 text-blue-500" />
+            </div>
+            {kpis.isLoading ? (
+              <Skeleton className="h-7 w-24 mt-2" />
+            ) : (
+              <>
+                <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">{ytdTaxa.value}</p>
+                <div className="mt-1 flex flex-col text-xs text-muted-foreground tabular-nums">
+                  <span>Propostas: <strong className="text-slate-200">{formatNumber(kpis.data?.oport_ytd ?? 0)}</strong></span>
+                  <span>Vendas: <strong className="text-slate-200">{formatNumber(kpis.data?.qtd_ytd ?? 0)}</strong></span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </ReportCard>
 
       {/* Composição de Vendas Mês a Mês */}
       <ReportCard
@@ -789,8 +1009,8 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
         {composicao.isLoading ? (
           <Skeleton className="h-[220px] w-full" />
         ) : (
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={composicao.data ?? []} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={composicaoData} margin={{ top: 24, right: 16, left: 8, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
               <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
               <YAxis
@@ -811,7 +1031,15 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
               />
               <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="unica" name="Valor Único" stackId="a" fill="#3b82f6" radius={[0, 0, 4, 4]} maxBarSize={40} />
-              <Bar dataKey="recorrente" name="Recorrente" stackId="a" fill="#f97316" radius={[4, 4, 0, 0]} maxBarSize={40} />
+              <Bar dataKey="recorrente" name="Recorrente" stackId="a" fill="#f97316" radius={[4, 4, 0, 0]} maxBarSize={40}>
+                <LabelList
+                  dataKey="receita_total"
+                  position="top"
+                  fill="hsl(var(--foreground))"
+                  fontSize={11}
+                  formatter={(v: number) => formatBRL(Number(v))}
+                />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -836,32 +1064,6 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
         />
       </div>
 
-      {/* Bloco 5 - Metas Anuais (renomeado) */}
-      <MetasBanner
-        title="Metas Anuais"
-        subtitle="Valor atingido por setor (acumulado YTD)"
-        metas={METAS_ANUAIS}
-        atingidos={atingidosYtd}
-        isLoading={kpisPorSetor.isLoading}
-      />
-
-      {/* NOVO - Meta YTD (esperado acumulado até o momento) */}
-      <MetasBanner
-        title="Meta YTD"
-        subtitle="Desempenho esperado acumulado até o momento (proporcional aos meses transcorridos)"
-        metas={metasYtd}
-        atingidos={atingidosYtd}
-        isLoading={kpisPorSetor.isLoading}
-      />
-
-      {/* Bloco 6 - Metas Mensal */}
-      <MetasBanner
-        title="Metas Mensais (MTD)"
-        subtitle={`Atingimento de ${selectedPeriodLabel} por setor`}
-        metas={metasMensaisSelecionadas}
-        atingidos={atingidosMtd}
-        isLoading={kpisPorSetor.isLoading}
-      />
 
 
       {/* Blocos 7 + 8 - YTD charts */}
