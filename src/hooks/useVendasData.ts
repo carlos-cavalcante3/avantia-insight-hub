@@ -52,10 +52,12 @@ export interface KpisAggregated {
   qtd_ytd: number;
   ticket_ytd: number;
   win_rate_ytd: number;
+  oport_ytd: number;
   valor_mtd: number;
   qtd_mtd: number;
   ticket_mtd: number;
   win_rate_mtd: number;
+  oport_mtd: number;
   /** Média ponderada por qtd_ganhos_ytd; null se a view não expuser a coluna. */
   win_rate_ytd_ano_anterior: number | null;
   win_rate_mtd_ano_anterior: number | null;
