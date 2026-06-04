@@ -238,6 +238,8 @@ const applySelectedMonthToKpis = (
     qtd_mtd,
     ticket_mtd: qtd_mtd > 0 ? valor_mtd / qtd_mtd : 0,
     win_rate_mtd: oport_mtd > 0 ? (qtd_mtd / oport_mtd) * 100 : 0,
+    oport_ytd,
+    oport_mtd,
   };
 };
 
