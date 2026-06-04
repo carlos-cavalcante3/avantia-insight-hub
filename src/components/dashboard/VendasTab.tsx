@@ -208,6 +208,21 @@ const BigValueCard = ({
 /* ---------------- Metas banner ---------------- */
 
 const SECTORS: Sector[] = ["avantia", "publico", "privado", "audio_video"];
+
+/** Metas reais inline por setor (anual e mensal MTD). */
+const METAS = {
+  publico: { anual: 10_000_000, mtd: 800_000 },
+  privado: { anual: 5_000_000, mtd: 400_000 },
+  av: { anual: 3_000_000, mtd: 250_000 },
+} as const;
+
+type SectorMetaKey = keyof typeof METAS;
+const SECTOR_META_LABEL: Record<SectorMetaKey, string> = {
+  publico: "Público",
+  privado: "Privado",
+  av: "Áudio e Vídeo",
+};
+
 const MONTH_NAMES = [
   "Janeiro",
   "Fevereiro",
@@ -222,6 +237,89 @@ const MONTH_NAMES = [
   "Novembro",
   "Dezembro",
 ];
+
+const ProgressBar = ({ pct, label }: { pct: number; label: string }) => {
+  const clamped = Math.min(Math.max(pct, 0), 1);
+  return (
+    <div>
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-0.5">
+        <span>{label}</span>
+        <span className="tabular-nums font-semibold text-slate-300">{formatPercent(clamped * 100)}</span>
+      </div>
+      <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700/50">
+        <div
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-600 to-orange-500 rounded-full transition-all duration-700"
+          style={{ width: `${(clamped * 100).toFixed(1)}%` }}
+        />
+      </div>
+    </div>
+  );
+};
+
+const SectorYtdCard = ({
+  sectorKey,
+  valor,
+  metaYtd,
+}: {
+  sectorKey: SectorMetaKey;
+  valor: number;
+  metaYtd: number;
+}) => {
+  const meta = METAS[sectorKey];
+  return (
+    <div className={kpiTileClass}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+          {SECTOR_META_LABEL[sectorKey]}
+        </p>
+        <div className="text-right">
+          <p className="text-[9px] uppercase tracking-wider text-blue-400 font-semibold">Meta Anual</p>
+          <p className="text-[11px] font-bold text-foreground tabular-nums">{formatBRL(meta.anual)}</p>
+        </div>
+      </div>
+      <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">
+        {formatBRL(valor)}
+      </p>
+      <div className="mt-2 space-y-2">
+        <ProgressBar pct={valor / meta.anual} label="vs Meta Anual" />
+        <ProgressBar pct={metaYtd > 0 ? valor / metaYtd : 0} label="vs Meta YTD" />
+      </div>
+      <p className="mt-1 text-[10px] text-right text-muted-foreground">
+        Meta YTD: <span className="font-semibold text-slate-300 tabular-nums">{formatBRL(metaYtd)}</span>
+      </p>
+    </div>
+  );
+};
+
+const SectorMtdCard = ({
+  sectorKey,
+  valor,
+}: {
+  sectorKey: SectorMetaKey;
+  valor: number;
+}) => {
+  const meta = METAS[sectorKey];
+  return (
+    <div className={kpiTileClass}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+          {SECTOR_META_LABEL[sectorKey]}
+        </p>
+        <div className="text-right">
+          <p className="text-[9px] uppercase tracking-wider text-blue-400 font-semibold">Meta Mensal</p>
+          <p className="text-[11px] font-bold text-foreground tabular-nums">{formatBRL(meta.mtd)}</p>
+        </div>
+      </div>
+      <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">
+        {formatBRL(valor)}
+      </p>
+      <div className="mt-2">
+        <ProgressBar pct={valor / meta.mtd} label="vs Meta Mensal" />
+      </div>
+    </div>
+  );
+};
+
 
 const MetaSectorThermo = ({
   sector,
