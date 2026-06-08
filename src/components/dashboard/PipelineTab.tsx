@@ -159,6 +159,10 @@ export const PipelineTab = ({ sector }: PipelineTabProps) => {
         clientes={clientes.data}
       />
 
+      <OportunidadesAudioVideoTable />
+
+
+
       <PipelineClientesUltimaMov
         title={`Pipeline por Cliente · ${sectorLabel}`}
         sectorLabel={sectorLabel}
