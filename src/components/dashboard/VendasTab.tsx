@@ -429,23 +429,34 @@ const DetailsPanel = ({ point }: { point: ValuePoint }) => {
     .slice()
     .sort((a, b) => Number(b.valor) - Number(a.valor));
   return (
-    <div className="w-72 text-xs">
-      <p className="font-semibold text-slate-100">{point.label}</p>
-      <p className="mt-0.5 text-slate-400">Total: {formatBRL(Number(point.valor ?? 0))}</p>
-      <ScrollArea className="h-64 mt-2 pr-2">
-        <div className="space-y-1">
+    <div className="w-72 bg-slate-900 border border-slate-700 p-3 rounded-md shadow-2xl">
+      <div className="border-b border-slate-800 pb-2 mb-2">
+        <p className="text-sm font-bold text-slate-100 truncate" title={point.label}>
+          {point.label}
+        </p>
+        <p className="text-xs text-slate-400">Total: {formatBRL(Number(point.valor ?? 0))}</p>
+      </div>
+      <ScrollArea className="h-64 pr-2">
+        <div>
           {detalhes.length ? (
             detalhes.map((item, index) => (
               <div
                 key={`${item.nome}-${index}`}
-                className="flex items-center justify-between gap-2 rounded-md border border-slate-800/60 bg-slate-950/80 px-2 py-1.5"
+                className="flex justify-between items-center py-1 gap-4"
               >
-                <span className="truncate text-slate-100">{item.cliente || item.nome || "Cliente não informado"}</span>
-                <span className="shrink-0 font-semibold text-blue-400 tabular-nums">{formatBRL(Number(item.valor ?? 0))}</span>
+                <span
+                  className="text-xs font-medium text-slate-200 truncate max-w-[180px]"
+                  title={item.cliente || item.nome}
+                >
+                  {item.cliente || item.nome || "Cliente não informado"}
+                </span>
+                <span className="text-xs font-bold text-blue-400 tabular-nums shrink-0">
+                  {formatBRL(Number(item.valor ?? 0))}
+                </span>
               </div>
             ))
           ) : (
-            <p className="text-slate-400">Sem contratos detalhados para este total.</p>
+            <p className="text-xs text-slate-400">Sem contratos detalhados para este total.</p>
           )}
         </div>
       </ScrollArea>
