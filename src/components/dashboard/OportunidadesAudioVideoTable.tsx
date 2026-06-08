@@ -31,7 +31,7 @@ export const OportunidadesAudioVideoTable = () => {
       const pipe = normalize(String(empresa.pipeline_nome ?? ""));
       if (!(pipe.includes("audio") || pipe.includes("video"))) continue;
       for (const n of empresa.negocios_detalhados ?? []) {
-        const rec = n as Record<string, unknown>;
+        const rec = n as unknown as Record<string, unknown>;
         out.push({
           id: (rec.id as string | number | null) ?? null,
           nome: String(rec.nome ?? "Oportunidade"),
