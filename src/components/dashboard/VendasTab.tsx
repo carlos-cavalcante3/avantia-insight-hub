@@ -871,101 +871,100 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
 
   const metasMensaisSelecionadas = METAS_MENSAIS_POR_MES[selectedMonth] ?? METAS_MENSAIS;
 
-  const ytdValor = ytdItems[0];
-  const mtdValor = mtdItems[0];
   const ytdQtd = ytdItems[1];
   const ytdTicket = ytdItems[2];
   const ytdTaxa = ytdItems[3];
-
-  const sectorMetaKeys: SectorMetaKey[] = ["publico", "privado", "av"];
-  const sectorToMetaKey: Record<SectorMetaKey, Sector> = {
-    publico: "publico",
-    privado: "privado",
-    av: "audio_video",
-  };
-  const ytdSectorValor = (k: SectorMetaKey) => kpisPorSetor.data?.[sectorToMetaKey[k]].valor_ytd ?? 0;
-  const mtdSectorValor = (k: SectorMetaKey) => kpisPorSetor.data?.[sectorToMetaKey[k]].valor_mtd ?? 0;
-  const metaYtdProporcional = (k: SectorMetaKey) => METAS[k].anual * (selectedMonth / 12);
 
   const composicaoData = (composicao.data ?? []).map((d) => ({
     ...d,
     receita_total: d.unica + d.recorrente,
   }));
 
+  const renderCompare2025 = (cur: number, prev: number | null | undefined, kind: "brl" | "number") => {
+    if (prev == null) return null;
+    const delta = prev > 0 ? ((cur / prev) - 1) * 100 : cur > 0 ? 100 : 0;
+    const pos = delta >= 0;
+    const prevTxt = kind === "brl" ? formatBRL(prev) : formatNumber(Math.round(prev));
+    return (
+      <p className="mt-1 text-xs text-slate-400">
+        2025: <span className="text-slate-200 tabular-nums">{prevTxt}</span>{" "}
+        <span className={`inline-flex items-center gap-0.5 font-semibold ${pos ? "text-emerald-400" : "text-red-400"}`}>
+          {pos ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+          {formatPercent(Math.abs(delta))} vs 2025
+        </span>
+      </p>
+    );
+  };
+
   return (
     <>
-      {/* Bloco 1 - YTD: Valor Fechado + 3 setores */}
+      {/* Bloco 1 - YTD: 4 setores incluindo Avantia (Geral) */}
       <ReportCard
         title="Vendas do Ano (YTD)"
         subtitle={`Acumulado ${currentYear} · ${sectorLabel}`}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className={kpiTileClass}>
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Valor Fechado</p>
-              <DollarSign className="h-4 w-4 text-blue-500" />
-            </div>
-            {kpis.isLoading ? (
-              <Skeleton className="h-7 w-24 mt-2" />
-            ) : (
-              <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">
-                {ytdValor.value}
-              </p>
-            )}
-            {!kpis.isLoading && !refs2025.isLoading && (
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <span className="text-xs font-medium text-slate-500">
-                  {ytdValor.previousYear}: {formatKpiPrevious(ytdValor.previousKind, ytdValor.previousAbsolute)}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+          {SECTOR_DISPLAY.map(({ key, label }) => {
+            const valor = kpisPorSetor.data?.[key].valor_ytd ?? 0;
+            const metaAnual = METAS_ANUAIS[key];
+            const metaYtd = metasYtd[key] ?? 0;
+            let compareSlot: React.ReactNode = null;
+            if (key === "avantia" && refs2025.data) {
+              const prev = refs2025.data.receitaYtd2025;
+              const delta = prev > 0 ? ((valor / prev) - 1) * 100 : valor > 0 ? 100 : 0;
+              const pos = delta >= 0;
+              compareSlot = (
+                <span className="inline-flex items-center gap-1">
+                  2025: <span className="text-slate-200 tabular-nums">{formatBRL(prev)}</span>
+                  <span className={`inline-flex items-center gap-0.5 font-semibold ${pos ? "text-emerald-400" : "text-red-400"}`}>
+                    {pos ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                    {formatPercent(Math.abs(delta))}
+                  </span>
                 </span>
-                <span className={`text-xs font-bold ${ytdValor.deltaPct >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                  {ytdValor.deltaPct >= 0 ? "+" : ""}{formatPercent(ytdValor.deltaPct)}
-                </span>
-              </div>
-            )}
-          </div>
-          {sectorMetaKeys.map((k) => (
-            <SectorYtdCard
-              key={`ytd-${k}`}
-              sectorKey={k}
-              valor={ytdSectorValor(k)}
-              metaYtd={metaYtdProporcional(k)}
-            />
-          ))}
+              );
+            }
+            return (
+              <MetaCard
+                key={`ytd-${key}`}
+                label={label}
+                valor={valor}
+                metaAnual={metaAnual}
+                metaPeriodo={metaYtd}
+                metaPeriodoLabel="Meta YTD"
+                bars={[
+                  { pct: metaAnual > 0 ? valor / metaAnual : 0, label: "vs Meta Anual" },
+                  { pct: metaYtd > 0 ? valor / metaYtd : 0, label: "vs Meta YTD" },
+                ]}
+                compareSlot={compareSlot}
+              />
+            );
+          })}
         </div>
       </ReportCard>
 
-      {/* Bloco 2 - MTD: Valor Fechado + 3 setores */}
+      {/* Bloco 2 - MTD: 4 setores incluindo Avantia (Geral) */}
       <ReportCard
         title="Vendas do Mês (MTD)"
         subtitle={`${selectedPeriodLabel} · ${sectorLabel}`}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className={kpiTileClass}>
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Valor Fechado</p>
-              <DollarSign className="h-4 w-4 text-blue-500" />
-            </div>
-            {kpis.isLoading ? (
-              <Skeleton className="h-7 w-24 mt-2" />
-            ) : (
-              <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">
-                {mtdValor.value}
-              </p>
-            )}
-            {!kpis.isLoading && !refs2025.isLoading && (
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <span className="text-xs font-medium text-slate-500">
-                  {mtdValor.previousYear}: {formatKpiPrevious(mtdValor.previousKind, mtdValor.previousAbsolute)}
-                </span>
-                <span className={`text-xs font-bold ${mtdValor.deltaPct >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                  {mtdValor.deltaPct >= 0 ? "+" : ""}{formatPercent(mtdValor.deltaPct)}
-                </span>
-              </div>
-            )}
-          </div>
-          {sectorMetaKeys.map((k) => (
-            <SectorMtdCard key={`mtd-${k}`} sectorKey={k} valor={mtdSectorValor(k)} />
-          ))}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+          {SECTOR_DISPLAY.map(({ key, label }) => {
+            const valor = kpisPorSetor.data?.[key].valor_mtd ?? 0;
+            const metaMensal = metasMensaisSelecionadas[key] ?? 0;
+            return (
+              <MetaCard
+                key={`mtd-${key}`}
+                label={label}
+                valor={valor}
+                metaAnual={METAS_ANUAIS[key]}
+                metaPeriodo={metaMensal}
+                metaPeriodoLabel="Meta Mensal"
+                bars={[
+                  { pct: metaMensal > 0 ? valor / metaMensal : 0, label: "vs Meta Mensal" },
+                ]}
+              />
+            );
+          })}
         </div>
       </ReportCard>
 
@@ -980,7 +979,10 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
             {kpis.isLoading ? (
               <Skeleton className="h-7 w-24 mt-2" />
             ) : (
-              <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">{ytdQtd.value}</p>
+              <>
+                <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">{ytdQtd.value}</p>
+                {!refs2025.isLoading && renderCompare2025(kpis.data?.qtd_ytd ?? 0, refs2025.data?.qtdYtd2025, "number")}
+              </>
             )}
           </div>
           <div className={kpiTileClass}>
@@ -991,7 +993,10 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
             {kpis.isLoading ? (
               <Skeleton className="h-7 w-24 mt-2" />
             ) : (
-              <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">{ytdTicket.value}</p>
+              <>
+                <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">{ytdTicket.value}</p>
+                {!refs2025.isLoading && renderCompare2025(kpis.data?.ticket_ytd ?? 0, refs2025.data?.ticketYtd2025, "brl")}
+              </>
             )}
           </div>
           <div className={kpiTileClass}>
