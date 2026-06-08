@@ -11,6 +11,7 @@ import { Info } from "lucide-react";
 import { formatBRL } from "@/lib/format";
 import { UnifiedFunnel, ETAPAS_FUNIL } from "./UnifiedFunnel";
 import { PipelineClientesUltimaMov } from "./PipelineClientesUltimaMov";
+import { OportunidadesAudioVideoTable } from "./OportunidadesAudioVideoTable";
 import { PonderadoTooltipContent } from "./PonderadoTooltipContent";
 import {
   usePipelinePonderado,
