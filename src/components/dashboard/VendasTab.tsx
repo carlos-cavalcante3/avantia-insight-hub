@@ -256,69 +256,71 @@ const ProgressBar = ({ pct, label }: { pct: number; label: string }) => {
   );
 };
 
-const SectorYtdCard = ({
-  sectorKey,
-  valor,
-  metaYtd,
-}: {
-  sectorKey: SectorMetaKey;
-  valor: number;
-  metaYtd: number;
-}) => {
-  const meta = METAS[sectorKey];
+const SECTOR_DISPLAY: { key: Sector; label: string }[] = [
+  { key: "avantia", label: "Avantia (Geral)" },
+  { key: "publico", label: "Público" },
+  { key: "privado", label: "Privado" },
+  { key: "audio_video", label: "Áudio e Vídeo" },
+];
+
+const BareBar = ({ pct, label }: { pct: number; label: string }) => {
+  const clamped = Math.min(Math.max(pct, 0), 1);
   return (
-    <div className={kpiTileClass}>
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
-          {SECTOR_META_LABEL[sectorKey]}
-        </p>
-        <div className="text-right">
-          <p className="text-[9px] uppercase tracking-wider text-blue-400 font-semibold">Meta Anual</p>
-          <p className="text-[11px] font-bold text-foreground tabular-nums">{formatBRL(meta.anual)}</p>
-        </div>
+    <div>
+      <div className="flex items-center justify-between text-[11px] text-slate-400 mb-0.5">
+        <span>{label}</span>
+        <span className="tabular-nums font-semibold text-slate-200">{formatPercent(clamped * 100)}</span>
       </div>
-      <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">
-        {formatBRL(valor)}
-      </p>
-      <div className="mt-2 space-y-2">
-        <ProgressBar pct={valor / meta.anual} label="vs Meta Anual" />
-        <ProgressBar pct={metaYtd > 0 ? valor / metaYtd : 0} label="vs Meta YTD" />
+      <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700/50">
+        <div
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-600 to-orange-500 rounded-full transition-all duration-700"
+          style={{ width: `${(clamped * 100).toFixed(1)}%` }}
+        />
       </div>
-      <p className="mt-1 text-[10px] text-right text-muted-foreground">
-        Meta YTD: <span className="font-semibold text-slate-300 tabular-nums">{formatBRL(metaYtd)}</span>
-      </p>
     </div>
   );
 };
 
-const SectorMtdCard = ({
-  sectorKey,
+const MetaCard = ({
+  label,
   valor,
+  metaAnual,
+  metaPeriodo,
+  metaPeriodoLabel,
+  bars,
+  compareSlot,
 }: {
-  sectorKey: SectorMetaKey;
+  label: string;
   valor: number;
-}) => {
-  const meta = METAS[sectorKey];
-  return (
-    <div className={kpiTileClass}>
+  metaAnual: number;
+  metaPeriodo: number;
+  metaPeriodoLabel: string;
+  bars: { pct: number; label: string }[];
+  compareSlot?: React.ReactNode;
+}) => (
+  <div className="flex flex-col gap-3">
+    <div className="rounded-lg border border-slate-800/60 bg-slate-900 p-4 min-h-[110px] flex flex-col justify-between shadow-sm">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
-          {SECTOR_META_LABEL[sectorKey]}
+        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+        <p className="text-[10px] font-bold text-blue-400 whitespace-nowrap">
+          META ANUAL <span className="text-slate-100 ml-1 tabular-nums">{formatBRL(metaAnual)}</span>
         </p>
-        <div className="text-right">
-          <p className="text-[9px] uppercase tracking-wider text-blue-400 font-semibold">Meta Mensal</p>
-          <p className="text-[11px] font-bold text-foreground tabular-nums">{formatBRL(meta.mtd)}</p>
-        </div>
       </div>
-      <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">
-        {formatBRL(valor)}
-      </p>
-      <div className="mt-2">
-        <ProgressBar pct={valor / meta.mtd} label="vs Meta Mensal" />
+      <h3 className="text-3xl font-black text-slate-50 tabular-nums my-1">{formatBRL(valor)}</h3>
+      <div className="flex items-end justify-between gap-2">
+        <div className="text-[11px] text-slate-400 min-h-[14px] truncate">{compareSlot}</div>
+        <p className="text-[10px] font-bold text-slate-400 whitespace-nowrap">
+          {metaPeriodoLabel}: <span className="text-slate-200 tabular-nums">{formatBRL(metaPeriodo)}</span>
+        </p>
       </div>
     </div>
-  );
-};
+    <div className="flex flex-col gap-2 px-1">
+      {bars.map((b) => (
+        <BareBar key={b.label} pct={b.pct} label={b.label} />
+      ))}
+    </div>
+  </div>
+);
 
 
 const MetaSectorThermo = ({
