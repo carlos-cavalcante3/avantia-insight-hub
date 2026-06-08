@@ -481,7 +481,7 @@ const DetailInfoTrigger = ({ point }: { point: ValuePoint }) => {
       <PopoverContent
         side="left"
         align="start"
-        className="border-slate-800/60 bg-slate-900 p-3 shadow-xl"
+        className="p-0 border-0 bg-transparent shadow-none"
       >
         <DetailsPanel point={point} />
       </PopoverContent>
