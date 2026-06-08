@@ -78,8 +78,19 @@ const StageDrilldown = ({
                 key={`${n.id}-${i}`}
                 className="rounded-md border border-slate-800/60 bg-slate-950/60 p-3"
               >
-                <p className="text-sm font-semibold text-slate-100 leading-snug">
-                  {negocioFunilDisplayName(n)}
+                <p className="text-sm font-semibold leading-snug">
+                  {n.id != null && String(n.id).trim() !== "" ? (
+                    <a
+                      href={`https://crm.rdstation.com/app/deals/${n.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:underline"
+                    >
+                      {negocioFunilDisplayName(n)}
+                    </a>
+                  ) : (
+                    <span className="text-slate-100">{negocioFunilDisplayName(n)}</span>
+                  )}
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5">{negocioFunilCliente(n)}</p>
                 <p className="text-xs text-slate-300 mt-1">{negocioFunilGerente(n)}</p>
