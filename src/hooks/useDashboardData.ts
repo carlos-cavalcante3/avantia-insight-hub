@@ -77,6 +77,11 @@ export interface VendaAno {
   ticket_medio: number;
 }
 
+export interface DetalhePerda {
+  nome: string;
+  valor: number;
+}
+
 export interface MotivoPerda {
   pipeline_nome?: string;
   motivo: string;
@@ -85,6 +90,7 @@ export interface MotivoPerda {
   /** alias retro-compatível para componentes existentes */
   total_perdidos: number;
   label: string;
+  detalhes_perdas: DetalhePerda[];
 }
 
 /** Série mensal YTD (ano corrente) para evolução de vendas — mv_vendas_mensais_yoy agregada por mês. */
