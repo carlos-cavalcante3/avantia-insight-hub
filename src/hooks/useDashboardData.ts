@@ -904,12 +904,18 @@ export const useMotivosPerda = (pipelineScope: PipelineScope = "avantia") =>
             return pipe.includes("publico") || pipe.includes("public") || pipe.includes("eletric");
           return true;
         });
-        const agg = new Map<string, { qtd: number; valor: number }>();
+        const agg = new Map<string, { qtd: number; valor: number; detalhes: DetalhePerda[] }>();
         for (const r of filtered) {
           const motivo = String(r.motivo ?? r.motivo_perda ?? r.reason ?? "Não Informado").trim() || "Não Informado";
-          const cur = agg.get(motivo) ?? { qtd: 0, valor: 0 };
+          const cur = agg.get(motivo) ?? { qtd: 0, valor: 0, detalhes: [] };
           cur.qtd += toNumber(r.qtd_negocios ?? r.total_negocios ?? r.total_perdidos ?? r.qtd ?? 0);
           cur.valor += toNumber(r.valor_perdido ?? r.valor_total_perdido ?? r.valor_total ?? r.valor ?? 0);
+          const det = parseNegociosDetalhados(r.detalhes_perdas);
+          for (const d of det) {
+            const nome = String((d as Record<string, unknown>).nome ?? (d as Record<string, unknown>).negocio ?? "").trim();
+            const valor = toNumber((d as Record<string, unknown>).valor);
+            if (nome) cur.detalhes.push({ nome, valor });
+          }
           agg.set(motivo, cur);
         }
         return Array.from(agg.entries())
@@ -920,6 +926,7 @@ export const useMotivosPerda = (pipelineScope: PipelineScope = "avantia") =>
             valor_perdido: v.valor,
             total_perdidos: v.qtd,
             label: motivo,
+            detalhes_perdas: v.detalhes,
           }))
           .filter((row) => row.qtd_negocios > 0 || row.valor_perdido > 0)
           .sort((a, b) => b.qtd_negocios - a.qtd_negocios);
