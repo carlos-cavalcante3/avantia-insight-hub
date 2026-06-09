@@ -1063,24 +1063,8 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
         )}
       </ReportCard>
 
-      {/* Blocos 3 + 4 - Pipeline */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        <BigValueCard
-          title="Valor Total do Pipeline"
-          subtitle={`Negócios em aberto · ${sectorLabel}`}
-          value={pipeline.data ? formatBRL(pipeline.data.valor_pipeline_bruto) : "—"}
-          qtd={pipeline.data?.qtd_aberto}
-          isLoading={pipeline.isLoading}
-        />
-        <BigValueCard
-          title="Pipeline Ponderado"
-          subtitle={`Valor × probabilidade · ${sectorLabel}`}
-          value={pipeline.data ? formatBRL(pipeline.data.valor_pipeline_ponderado) : "—"}
-          isLoading={pipeline.isLoading}
-          infoTooltip="ponderado"
-        />
-      </div>
+
 
 
 
