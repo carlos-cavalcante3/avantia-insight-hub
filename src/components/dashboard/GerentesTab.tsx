@@ -62,7 +62,8 @@ const VendasGerenteTooltip = ({
   const row = payload[0]?.payload;
   const detalhes = (row?.detalhes_vendas_ytd ?? [])
     .filter((item) => item?.cliente_nome)
-    .slice(0, 12);
+    .slice()
+    .sort((a, b) => Number(b?.valor ?? 0) - Number(a?.valor ?? 0));
 
   return (
     <div className="w-96 max-w-[calc(100vw-2rem)] rounded-md border border-blue-950/50 bg-card px-3 py-2 text-xs text-slate-100 shadow-xl">
