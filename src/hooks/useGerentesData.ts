@@ -231,6 +231,33 @@ export const usePipelineAbertoPorGestor = (gestorNome: string | null) =>
     staleTime: 5 * 60 * 1000,
   });
 
+export interface PipelineAbertoPorGestorRow {
+  gestor_nome: string;
+  qtd_negocios_abertos: number;
+  valor_total_aberto: number;
+}
+
+/** Pipeline aberto agregado de todos os gestores — `gold.mv_pipeline_aberto_gestor`. */
+export const usePipelineAbertoTodosGestores = () =>
+  useQuery({
+    queryKey: ["gold", "mv_pipeline_aberto_gestor_todos"],
+    queryFn: async (): Promise<PipelineAbertoPorGestorRow[]> =>
+      guard(async () => {
+        const { data, error } = await supabaseGold
+          .from("mv_pipeline_aberto_gestor")
+          .select("*");
+        if (error) throw error;
+        return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+          gestor_nome: String(r.gestor_nome ?? r.gerente_nome ?? "").trim() || "—",
+          qtd_negocios_abertos: Number(r.qtd_negocios_abertos ?? 0),
+          valor_total_aberto: Number(
+            r.valor_total_aberto ?? r.valor_pipeline ?? r.valor_aberto ?? 0
+          ),
+        }));
+      }),
+    staleTime: 5 * 60 * 1000,
+  });
+
 /* --------- mv_top_clientes_gestor --------- */
 
 export interface TopClienteGestor {
