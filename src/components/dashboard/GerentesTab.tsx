@@ -22,6 +22,7 @@ import {
   useRankingMovimentacoesDeals,
   useRankingVisitas,
   useCurvaEvolucaoGlobal,
+  usePipelineAbertoTodosGestores,
 } from "@/hooks/useGerentesData";
 import { useVendasGestorPeriodo } from "@/hooks/useVendasData";
 import { isGerenteWhitelisted } from "@/lib/gerentes";
@@ -34,7 +35,7 @@ import { filterCurvaValid } from "@/lib/dateFilters";
 
 const ORANGE = "hsl(var(--primary))";
 const BLUE = "hsl(var(--secondary))";
-const META_YTD_GERENTE = 10_000_000;
+const META_INDIVIDUAL_GERENTE = 5_000_000;
 
 interface RankItem {
   responsavel: string;
@@ -61,7 +62,8 @@ const VendasGerenteTooltip = ({
   const row = payload[0]?.payload;
   const detalhes = (row?.detalhes_vendas_ytd ?? [])
     .filter((item) => item?.cliente_nome)
-    .slice(0, 12);
+    .slice()
+    .sort((a, b) => Number(b?.valor ?? 0) - Number(a?.valor ?? 0));
 
   return (
     <div className="w-96 max-w-[calc(100vw-2rem)] rounded-md border border-blue-950/50 bg-card px-3 py-2 text-xs text-slate-100 shadow-xl">
@@ -197,6 +199,20 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
   const movs = useRankingMovimentacoesDeals(200);
   const visitas = useRankingVisitas(200);
   const curvaGlobal = useCurvaEvolucaoGlobal();
+  const pipelineAberto = usePipelineAbertoTodosGestores();
+  const pipelineMap = useMemo(() => {
+    const norm = (s: string) =>
+      s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const m = new Map<string, number>();
+    for (const r of pipelineAberto.data ?? []) {
+      m.set(norm(r.gestor_nome), Number(r.valor_total_aberto ?? 0));
+    }
+    return m;
+  }, [pipelineAberto.data]);
+  const pipelineDoGerente = (nome: string) => {
+    const norm = nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    return pipelineMap.get(norm) ?? 0;
+  };
   const [hiddenManagers, setHiddenManagers] = useState<Set<string>>(() => new Set());
 
   if (perf.error) return <ErrorState message={(perf.error as Error).message} />;
@@ -516,20 +532,23 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
                     </span>
                   </span>
                   <span className="text-muted-foreground col-span-2">
-                    {Math.round(g.prazo_medio_dias || g.dias_medios_fechamento || 0)} dias de ciclo médio
+                    Pipeline:{" "}
+                    <span className="font-semibold text-foreground tabular-nums">
+                      {formatBRL(pipelineDoGerente(g.gestor_nome))}
+                    </span>
                   </span>
                   <span className="col-span-2 mt-1">
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                      <span>Meta YTD: {formatBRL(META_YTD_GERENTE)}</span>
+                      <span>Meta YTD: {formatBRL(META_INDIVIDUAL_GERENTE)}</span>
                       <span className="font-semibold text-foreground">
-                        {formatPercent(Math.min((g.valor_total_ganho_ytd / META_YTD_GERENTE) * 100, 100))}
+                        {formatPercent(Math.min((g.valor_total_ganho_ytd / META_INDIVIDUAL_GERENTE) * 100, 100))}
                       </span>
                     </div>
-                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-800">
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-800 border border-slate-700/50">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-sky-400 to-emerald-400"
+                        className="h-full bg-gradient-to-r from-blue-600 to-orange-500 transition-all duration-700"
                         style={{
-                          width: `${Math.min((g.valor_total_ganho_ytd / META_YTD_GERENTE) * 100, 100)}%`,
+                          width: `${Math.min((g.valor_total_ganho_ytd / META_INDIVIDUAL_GERENTE) * 100, 100)}%`,
                         }}
                       />
                     </div>

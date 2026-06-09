@@ -231,6 +231,33 @@ export const usePipelineAbertoPorGestor = (gestorNome: string | null) =>
     staleTime: 5 * 60 * 1000,
   });
 
+export interface PipelineAbertoPorGestorRow {
+  gestor_nome: string;
+  qtd_negocios_abertos: number;
+  valor_total_aberto: number;
+}
+
+/** Pipeline aberto agregado de todos os gestores — `gold.mv_pipeline_aberto_gestor`. */
+export const usePipelineAbertoTodosGestores = () =>
+  useQuery({
+    queryKey: ["gold", "mv_pipeline_aberto_gestor_todos"],
+    queryFn: async (): Promise<PipelineAbertoPorGestorRow[]> =>
+      guard(async () => {
+        const { data, error } = await supabaseGold
+          .from("mv_pipeline_aberto_gestor")
+          .select("*");
+        if (error) throw error;
+        return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+          gestor_nome: String(r.gestor_nome ?? r.gerente_nome ?? "").trim() || "—",
+          qtd_negocios_abertos: Number(r.qtd_negocios_abertos ?? 0),
+          valor_total_aberto: Number(
+            r.valor_total_aberto ?? r.valor_pipeline ?? r.valor_aberto ?? 0
+          ),
+        }));
+      }),
+    staleTime: 5 * 60 * 1000,
+  });
+
 /* --------- mv_top_clientes_gestor --------- */
 
 export interface TopClienteGestor {
@@ -240,13 +267,17 @@ export interface TopClienteGestor {
   valor_mtd: number;
 }
 
-export const useTopClientesGestor = (gestorNome: string | null, selectedMonth?: number) =>
+export const useTopClientesGestor = (
+  gestorNome: string | null,
+  selectedMonth?: number,
+  isYtdView?: boolean
+) =>
   useQuery({
     queryKey: [
       "gold",
       "mv_top_clientes_gestor",
       gestorNome,
-      selectedMonthOrUndefined(selectedMonth) ?? new Date().getMonth() + 1,
+      isYtdView ? "ytd" : selectedMonthOrUndefined(selectedMonth) ?? new Date().getMonth() + 1,
     ],
     enabled: Boolean(gestorNome),
     queryFn: async (): Promise<TopClienteGestor[]> =>
@@ -283,8 +314,9 @@ export const useTopClientesGestor = (gestorNome: string | null, selectedMonth?: 
             valor_mtd: 0,
           };
           const valor = Number(r?.valor ?? r?.valor_ganho ?? r?.valor_total ?? 0);
-          if (rowMonth <= month) cur.valor_ytd += valor;
-          if (rowMonth === month) cur.valor_mtd += valor;
+          // Em modo YTD-View, acumulamos o ano todo (ignora selectedMonth).
+          if (isYtdView || rowMonth <= month) cur.valor_ytd += valor;
+          if (!isYtdView && rowMonth === month) cur.valor_mtd += valor;
           agg.set(empresaNome, cur);
         }
         return Array.from(agg.values()).sort((a, b) => b.valor_ytd - a.valor_ytd);

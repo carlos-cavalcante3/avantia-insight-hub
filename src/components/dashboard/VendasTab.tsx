@@ -18,7 +18,6 @@ import { formatBRL, formatNumber, formatPercent } from "@/lib/format";
 import {
   useKpisVendas,
   useKpisPorSetor,
-  usePipelinePonderado,
   useTopClientesPeriodo,
   useVendasGestorPeriodo,
   useReferenciasVendasAno2025,
@@ -668,7 +667,7 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
   const selectedMonth = isYtd ? currentMonth : Number(periodo.replace("mes-", ""));
   const kpis = useKpisVendas(sector, selectedMonth);
   const kpisPorSetor = useKpisPorSetor(selectedMonth);
-  const pipeline = usePipelinePonderado(sector);
+  // pipeline ponderado removido desta aba — agora exclusivo da aba Pipeline
   const clientes = useTopClientesPeriodo(sector, 15, selectedMonth);
   const gestores = useVendasGestorPeriodo(sector, selectedMonth);
   const refs2025 = useReferenciasVendasAno2025(sector, selectedMonth);
@@ -1010,7 +1009,7 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
               <>
                 <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">{ytdTaxa.value}</p>
                 <div className="mt-1 flex flex-col text-xs text-muted-foreground tabular-nums">
-                  <span>Propostas: <strong className="text-slate-200">{formatNumber(kpis.data?.oport_ytd ?? 0)}</strong></span>
+                  <span>Oportunidades: <strong className="text-slate-200">{formatNumber(kpis.data?.oport_ytd ?? 0)}</strong></span>
                   <span>Vendas: <strong className="text-slate-200">{formatNumber(kpis.data?.qtd_ytd ?? 0)}</strong></span>
                 </div>
               </>
@@ -1063,24 +1062,8 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
         )}
       </ReportCard>
 
-      {/* Blocos 3 + 4 - Pipeline */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        <BigValueCard
-          title="Valor Total do Pipeline"
-          subtitle={`Negócios em aberto · ${sectorLabel}`}
-          value={pipeline.data ? formatBRL(pipeline.data.valor_pipeline_bruto) : "—"}
-          qtd={pipeline.data?.qtd_aberto}
-          isLoading={pipeline.isLoading}
-        />
-        <BigValueCard
-          title="Pipeline Ponderado"
-          subtitle={`Valor × probabilidade · ${sectorLabel}`}
-          value={pipeline.data ? formatBRL(pipeline.data.valor_pipeline_ponderado) : "—"}
-          isLoading={pipeline.isLoading}
-          infoTooltip="ponderado"
-        />
-      </div>
+
 
 
 
