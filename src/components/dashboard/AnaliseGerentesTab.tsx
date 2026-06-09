@@ -146,32 +146,116 @@ const OportunidadesTooltip = ({
   );
 };
 
+const TEAM_VIEW = "__team__";
+
 export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps) => {
   const currentMonth = new Date().getMonth() + 1;
   const selectedMonth = periodo === "ytd" ? currentMonth : Number(periodo.replace("mes-", ""));
+
   const perf = usePerformanceGestor(selectedMonth);
   const vendasGestor = useVendasGestorPeriodo("avantia", selectedMonth);
-  const topClientes = useTopClientesGestor(gestor, selectedMonth);
-  const curva = useCurvaEvolucaoGestor(gestor);
-  const oportunidadesMes = useOportunidadesGeradasMes(gestor);
-  const carteira = useCarteiraClientes(gestor);
   const movs = useRankingMovimentacoesDeals(200);
   const visitas = useRankingVisitas(200);
+  const pipelineAberto = usePipelineAbertoTodosGestores();
+
+  // Lista de gerentes desta visão (whitelist)
+  const gerentesList = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (perf.data ?? [])
+            .map((g) => g.gestor_nome)
+            .filter(Boolean)
+            .filter(isGerenteWhitelisted)
+        )
+      ).sort(),
+    [perf.data]
+  );
+
+  // Visão local: "Equipe (Consolidado)" como default
+  const [viewMode, setViewMode] = useState<string>(TEAM_VIEW);
+  useEffect(() => {
+    // sincroniza se Index trocar de gestor via header
+    if (gestor && gerentesList.includes(gestor)) setViewMode(gestor);
+  }, [gestor, gerentesList]);
+
+  const isTeam = viewMode === TEAM_VIEW;
+  const activeGestor = isTeam ? null : viewMode;
+
+  // Hooks individuais (dependentes do gestor selecionado)
+  const topClientes = useTopClientesGestor(activeGestor, selectedMonth, true);
+  const curva = useCurvaEvolucaoGestor(activeGestor);
+  const oportunidadesMes = useOportunidadesGeradasMes(activeGestor);
+  const carteira = useCarteiraClientes(activeGestor);
 
   if (perf.error) return <ErrorState message={(perf.error as Error).message} />;
 
-  const gestorPerf = perf.data?.find((g) => g?.gestor_nome === gestor);
-  const gestorVendas = vendasGestor.data?.ytd?.find?.(
-    (g) => g?.gestor_nome === gestor
-  );
+  const normNome = (s: string) => normalizeNome(s ?? "");
+
+  // ----- Agregações por modo (equipe x individual) -----
+  const perfWL = (perf.data ?? []).filter((g) => isGerenteWhitelisted(g.gestor_nome));
+
+  const vendasYtdValor = isTeam
+    ? (vendasGestor.data?.ytd ?? [])
+        .filter((g) => isGerenteWhitelisted(g.gestor_nome))
+        .reduce((acc, g) => acc + Number(g.valor_ytd ?? 0), 0)
+    : Number(
+        (vendasGestor.data?.ytd ?? []).find((g) => g.gestor_nome === activeGestor)?.valor_ytd ?? 0
+      );
+
+  const qtdYtdValor = isTeam
+    ? (vendasGestor.data?.ytd ?? [])
+        .filter((g) => isGerenteWhitelisted(g.gestor_nome))
+        .reduce((acc, g) => acc + Number(g.qtd_ytd ?? 0), 0)
+    : Number(
+        (vendasGestor.data?.ytd ?? []).find((g) => g.gestor_nome === activeGestor)?.qtd_ytd ?? 0
+      );
+
+  const movsValor = isTeam
+    ? (movs.data ?? [])
+        .filter((m) => isGerenteWhitelisted(m.responsavel))
+        .reduce((acc, m) => acc + Number(m.qtd ?? 0), 0)
+    : Number(
+        (movs.data ?? []).find((m) => normNome(m.responsavel) === normNome(activeGestor ?? ""))
+          ?.qtd ?? 0
+      );
+
+  const visitasValor = isTeam
+    ? (visitas.data ?? [])
+        .filter((v) => isGerenteWhitelisted(v.responsavel))
+        .reduce((acc, v) => acc + Number(v.qtd ?? 0), 0)
+    : Number(
+        (visitas.data ?? []).find(
+          (v) => normNome(v.responsavel) === normNome(activeGestor ?? "")
+        )?.qtd ?? 0
+      );
+
+  const propostasYtd = isTeam
+    ? perfWL.reduce((acc, g) => acc + Number(g.valor_propostas_ytd ?? 0), 0)
+    : Number(perfWL.find((g) => g.gestor_nome === activeGestor)?.valor_propostas_ytd ?? 0);
+
+  const pipelineValor = isTeam
+    ? (pipelineAberto.data ?? [])
+        .filter((r) => isGerenteWhitelisted(r.gestor_nome))
+        .reduce((acc, r) => acc + Number(r.valor_total_aberto ?? 0), 0)
+    : Number(
+        (pipelineAberto.data ?? []).find(
+          (r) => normNome(r.gestor_nome) === normNome(activeGestor ?? "")
+        )?.valor_total_aberto ?? 0
+      );
+
+  // Meta YTD individual (5M por gerente) — em equipe, multiplica pelos gerentes whitelist
+  const META_INDIVIDUAL = 5_000_000;
+  const metaYtd = isTeam ? META_INDIVIDUAL * gerentesList.length : META_INDIVIDUAL;
+  const metaPct = metaYtd > 0 ? Math.min((vendasYtdValor / metaYtd) * 100, 100) : 0;
 
   const isLoadingTop = perf.isLoading || vendasGestor.isLoading;
 
-  const top5ClientesMes = useMemo(
+  const clientesYtd = useMemo(
     () =>
       [...(topClientes.data ?? [])]
-        .filter((c) => Number(c.valor_mtd ?? 0) > 0)
-        .sort((a, b) => b.valor_mtd - a.valor_mtd || b.valor_ytd - a.valor_ytd)
+        .filter((c) => Number(c.valor_ytd ?? 0) > 0)
+        .sort((a, b) => Number(b.valor_ytd ?? 0) - Number(a.valor_ytd ?? 0))
         .slice(0, 5),
     [topClientes.data]
   );
@@ -186,27 +270,52 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
     [oportunidadesMes.data]
   );
 
-  const movsGestor = useMemo(() => {
-    const alvo = gestor ? normalizeNome(gestor) : "";
-    return (movs.data ?? []).find(
-      (m) => normalizeNome(m.responsavel) === alvo
-    );
-  }, [movs.data, gestor]);
-
-  const visitasGestor = useMemo(() => {
-    const alvo = gestor ? normalizeNome(gestor) : "";
-    return (visitas.data ?? []).find(
-      (v) => normalizeNome(v.responsavel) === alvo
-    );
-  }, [visitas.data, gestor]);
-
-  const vendasYtdValor =
-    gestorVendas?.valor_ytd != null ? Number(gestorVendas.valor_ytd) : 0;
-
   return (
     <div className="space-y-4">
-      {/* Linha superior — 3 KPIs alinhados */}
+      {/* Seletor Visão da Equipe x Individual */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+          Visualização
+        </span>
+        <Select value={viewMode} onValueChange={setViewMode}>
+          <SelectTrigger className="h-9 w-[280px] bg-slate-900 border-slate-800">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={TEAM_VIEW}>Visão da Equipe (Consolidado)</SelectItem>
+            {gerentesList.map((g) => (
+              <SelectItem key={g} value={g}>
+                {g}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Grid central 2 linhas x 3 colunas */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Linha 1 */}
+        <ReportCard title="Meta de Vendas (YTD)" subtitle={`vs Meta ${formatBRL(metaYtd)}`}>
+          <div className="h-[140px] flex flex-col justify-center gap-2">
+            {isLoadingTop ? (
+              <Skeleton className="h-10 w-40 bg-slate-800" />
+            ) : (
+              <>
+                <p className="text-2xl font-black text-slate-50 tabular-nums">
+                  {formatBRL(vendasYtdValor)}
+                </p>
+                <Progress value={metaPct} className="h-2 bg-slate-800" />
+                <div className="flex justify-between text-[11px] text-slate-400">
+                  <span>Atingido</span>
+                  <span className="font-bold text-emerald-400 tabular-nums">
+                    {metaPct.toFixed(1)}%
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        </ReportCard>
+
         <ReportCard title="Vendas YTD" subtitle="Volume financeiro acumulado">
           <div className="h-[140px] flex flex-col items-center justify-center text-center">
             {isLoadingTop ? (
@@ -218,16 +327,33 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
                   {formatBRL(vendasYtdValor)}
                 </p>
                 <p className="mt-1 text-[11px] text-slate-400">
-                  {gestorVendas?.qtd_ytd != null
-                    ? `${formatNumber(gestorVendas.qtd_ytd)} negócios fechados`
-                    : "—"}
+                  {`${formatNumber(qtdYtdValor)} negócios fechados`}
                 </p>
               </>
             )}
           </div>
         </ReportCard>
 
-        <ReportCard title="Movimentações no CRM" subtitle="Interações registradas">
+        <ReportCard title="Pipeline" subtitle="Negócios em aberto">
+          <div className="h-[140px] flex items-center justify-center gap-4">
+            <Activity className="h-10 w-10 text-orange-500 shrink-0" />
+            <div>
+              {pipelineAberto.isLoading ? (
+                <Skeleton className="h-10 w-32 bg-slate-800" />
+              ) : (
+                <>
+                  <p className="text-2xl font-black tabular-nums text-slate-50">
+                    {formatBRL(pipelineValor)}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">em aberto</p>
+                </>
+              )}
+            </div>
+          </div>
+        </ReportCard>
+
+        {/* Linha 2 */}
+        <ReportCard title="Movimentações CRM" subtitle="Interações registradas">
           <div className="h-[140px] flex items-center justify-center gap-4">
             <Activity className="h-10 w-10 text-blue-500 shrink-0" />
             <div>
@@ -236,7 +362,7 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
               ) : (
                 <>
                   <p className="text-3xl font-black tabular-nums text-slate-50">
-                    {formatNumber(Number(movsGestor?.qtd ?? 0))}
+                    {formatNumber(movsValor)}
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">movimentações</p>
                 </>
@@ -254,7 +380,7 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
               ) : (
                 <>
                   <p className="text-3xl font-black tabular-nums text-slate-50">
-                    {formatNumber(Number(visitasGestor?.qtd ?? 0))}
+                    {formatNumber(visitasValor)}
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">visitas</p>
                 </>
@@ -262,26 +388,48 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
             </div>
           </div>
         </ReportCard>
+
+        <ReportCard title="Propostas Colocadas" subtitle="Valor total proposto YTD">
+          <div className="h-[140px] flex items-center justify-center gap-4">
+            <DollarSign className="h-10 w-10 text-emerald-500 shrink-0" />
+            <div>
+              {perf.isLoading ? (
+                <Skeleton className="h-10 w-32 bg-slate-800" />
+              ) : (
+                <>
+                  <p className="text-2xl font-black tabular-nums text-slate-50">
+                    {formatBRL(propostasYtd)}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">YTD</p>
+                </>
+              )}
+            </div>
+          </div>
+        </ReportCard>
       </div>
 
-      {/* Grid assimétrico — Top 5 compacto + Oportunidades mês a mês */}
+      {/* Grid assimétrico — Clientes YTD + Oportunidades mês a mês */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <ReportCard
-          title="Top 5 Clientes do Mês"
-          subtitle="Maiores faturamentos MTD"
+          title="Clientes YTD"
+          subtitle="Maiores faturamentos no acumulado do ano"
           className="lg:col-span-1"
         >
           <div className="h-[300px] w-full">
             {topClientes.isLoading ? (
               <Skeleton className="h-full w-full bg-slate-800" />
-            ) : top5ClientesMes.length === 0 ? (
+            ) : !activeGestor ? (
+              <div className="h-full flex items-center justify-center text-center text-sm text-slate-400 px-4">
+                Selecione um gerente individual para visualizar os principais clientes.
+              </div>
+            ) : clientesYtd.length === 0 ? (
               <div className="h-full flex items-center justify-center text-sm text-slate-400">
-                Sem clientes no mês.
+                Sem clientes no período.
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={top5ClientesMes}
+                  data={clientesYtd}
                   layout="vertical"
                   margin={{ top: 4, right: 72, left: 4, bottom: 4 }}
                 >
@@ -322,7 +470,7 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
                     }}
                   />
                   <RechartsTooltip
-                    formatter={(value: number) => [formatBRL(Number(value)), "Valor Investido"]}
+                    formatter={(value: number) => [formatBRL(Number(value)), "Valor YTD"]}
                     contentStyle={{
                       background: "#0f172a",
                       border: "1px solid #334155",
@@ -332,13 +480,13 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
                     }}
                   />
                   <Bar
-                    dataKey="valor_mtd"
+                    dataKey="valor_ytd"
                     fill="#3b82f6"
                     radius={[0, 4, 4, 0]}
                     barSize={14}
                   >
                     <LabelList
-                      dataKey="valor_mtd"
+                      dataKey="valor_ytd"
                       position="right"
                       fill="#e2e8f0"
                       fontSize={10}
