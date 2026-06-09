@@ -1010,7 +1010,7 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
               <>
                 <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">{ytdTaxa.value}</p>
                 <div className="mt-1 flex flex-col text-xs text-muted-foreground tabular-nums">
-                  <span>Propostas: <strong className="text-slate-200">{formatNumber(kpis.data?.oport_ytd ?? 0)}</strong></span>
+                  <span>Oportunidades: <strong className="text-slate-200">{formatNumber(kpis.data?.oport_ytd ?? 0)}</strong></span>
                   <span>Vendas: <strong className="text-slate-200">{formatNumber(kpis.data?.qtd_ytd ?? 0)}</strong></span>
                 </div>
               </>
