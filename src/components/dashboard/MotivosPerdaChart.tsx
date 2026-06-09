@@ -32,10 +32,9 @@ const MotivoTooltip = ({
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload;
   const qtd = Number(payload[0]?.value ?? row?.qtd_negocios ?? 0);
-  const detalhes = [...(row?.detalhes_perdas ?? [])]
-    .sort((a, b) => Number(b.valor) - Number(a.valor))
-    .slice(0, 10);
-  const totalDet = row?.detalhes_perdas?.length ?? 0;
+  const detalhes = [...(row?.detalhes_perdas ?? [])].sort(
+    (a, b) => Number(b.valor) - Number(a.valor)
+  );
   return (
     <div className="rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-xs shadow-xl max-w-sm">
       <p className="font-semibold leading-snug text-slate-100">{label ?? row?.motivo}</p>
@@ -43,23 +42,16 @@ const MotivoTooltip = ({
         {formatNumber(qtd)} negócios · {formatBRL(Number(row?.valor_perdido ?? 0))}
       </p>
       {detalhes.length > 0 && (
-        <>
-          <div className="mt-2 border-t border-slate-800 pt-2 space-y-1">
-            {detalhes.map((d, i) => (
-              <div key={i} className="flex justify-between items-center gap-3">
-                <span className="text-slate-200 truncate max-w-[200px]">{d.nome}</span>
-                <span className="text-blue-400 font-semibold tabular-nums whitespace-nowrap">
-                  {formatBRL(Number(d.valor ?? 0))}
-                </span>
-              </div>
-            ))}
-          </div>
-          {totalDet > 10 && (
-            <p className="mt-1 text-[10px] text-slate-500">
-              +{totalDet - 10} negócios não exibidos
-            </p>
-          )}
-        </>
+        <div className="mt-2 border-t border-slate-800 pt-2 max-h-[250px] overflow-y-auto pr-2 scrollbar-thin space-y-1">
+          {detalhes.map((d, i) => (
+            <div key={i} className="flex justify-between items-center gap-3">
+              <span className="text-slate-200 truncate max-w-[200px]">{d.nome}</span>
+              <span className="text-blue-400 font-semibold tabular-nums whitespace-nowrap">
+                {formatBRL(Number(d.valor ?? 0))}
+              </span>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
