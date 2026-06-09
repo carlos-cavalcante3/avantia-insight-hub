@@ -532,20 +532,23 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
                     </span>
                   </span>
                   <span className="text-muted-foreground col-span-2">
-                    {Math.round(g.prazo_medio_dias || g.dias_medios_fechamento || 0)} dias de ciclo médio
+                    Pipeline:{" "}
+                    <span className="font-semibold text-foreground tabular-nums">
+                      {formatBRL(pipelineDoGerente(g.gestor_nome))}
+                    </span>
                   </span>
                   <span className="col-span-2 mt-1">
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                      <span>Meta YTD: {formatBRL(META_YTD_GERENTE)}</span>
+                      <span>Meta YTD: {formatBRL(META_INDIVIDUAL_GERENTE)}</span>
                       <span className="font-semibold text-foreground">
-                        {formatPercent(Math.min((g.valor_total_ganho_ytd / META_YTD_GERENTE) * 100, 100))}
+                        {formatPercent(Math.min((g.valor_total_ganho_ytd / META_INDIVIDUAL_GERENTE) * 100, 100))}
                       </span>
                     </div>
-                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-800">
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-800 border border-slate-700/50">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-sky-400 to-emerald-400"
+                        className="h-full bg-gradient-to-r from-blue-600 to-orange-500 transition-all duration-700"
                         style={{
-                          width: `${Math.min((g.valor_total_ganho_ytd / META_YTD_GERENTE) * 100, 100)}%`,
+                          width: `${Math.min((g.valor_total_ganho_ytd / META_INDIVIDUAL_GERENTE) * 100, 100)}%`,
                         }}
                       />
                     </div>
