@@ -18,7 +18,6 @@ import { formatBRL, formatNumber, formatPercent } from "@/lib/format";
 import {
   useKpisVendas,
   useKpisPorSetor,
-  usePipelinePonderado,
   useTopClientesPeriodo,
   useVendasGestorPeriodo,
   useReferenciasVendasAno2025,
