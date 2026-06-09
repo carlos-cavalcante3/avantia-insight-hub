@@ -30,6 +30,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
   usePerformanceGestor,
@@ -39,8 +47,10 @@ import {
   useRankingMovimentacoesDeals,
   useRankingVisitas,
   useOportunidadesGeradasMes,
+  usePipelineAbertoTodosGestores,
 } from "@/hooks/useGerentesData";
 import { useVendasGestorPeriodo } from "@/hooks/useVendasData";
+import { isGerenteWhitelisted } from "@/lib/gerentes";
 import { filterCurvaValid } from "@/lib/dateFilters";
 
 interface AnaliseGerentesTabProps {
