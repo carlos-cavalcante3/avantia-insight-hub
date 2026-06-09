@@ -22,6 +22,7 @@ import {
   useRankingMovimentacoesDeals,
   useRankingVisitas,
   useCurvaEvolucaoGlobal,
+  usePipelineAbertoTodosGestores,
 } from "@/hooks/useGerentesData";
 import { useVendasGestorPeriodo } from "@/hooks/useVendasData";
 import { isGerenteWhitelisted } from "@/lib/gerentes";
@@ -34,7 +35,7 @@ import { filterCurvaValid } from "@/lib/dateFilters";
 
 const ORANGE = "hsl(var(--primary))";
 const BLUE = "hsl(var(--secondary))";
-const META_YTD_GERENTE = 10_000_000;
+const META_INDIVIDUAL_GERENTE = 5_000_000;
 
 interface RankItem {
   responsavel: string;
