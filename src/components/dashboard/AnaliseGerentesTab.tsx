@@ -115,7 +115,9 @@ const OportunidadesTooltip = ({
 }) => {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload;
-  const detalhes = (row?.detalhes_oportunidades ?? []).slice(0, 12);
+  const detalhes = [...(row?.detalhes_oportunidades ?? [])].sort(
+    (a, b) => Number(b?.valor ?? 0) - Number(a?.valor ?? 0)
+  );
 
   return (
     <div className="max-w-sm rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100 shadow-xl">
