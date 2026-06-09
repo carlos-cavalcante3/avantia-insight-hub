@@ -668,7 +668,7 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
   const selectedMonth = isYtd ? currentMonth : Number(periodo.replace("mes-", ""));
   const kpis = useKpisVendas(sector, selectedMonth);
   const kpisPorSetor = useKpisPorSetor(selectedMonth);
-  const pipeline = usePipelinePonderado(sector);
+  // pipeline ponderado removido desta aba — agora exclusivo da aba Pipeline
   const clientes = useTopClientesPeriodo(sector, 15, selectedMonth);
   const gestores = useVendasGestorPeriodo(sector, selectedMonth);
   const refs2025 = useReferenciasVendasAno2025(sector, selectedMonth);
