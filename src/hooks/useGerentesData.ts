@@ -267,13 +267,17 @@ export interface TopClienteGestor {
   valor_mtd: number;
 }
 
-export const useTopClientesGestor = (gestorNome: string | null, selectedMonth?: number) =>
+export const useTopClientesGestor = (
+  gestorNome: string | null,
+  selectedMonth?: number,
+  isYtdView?: boolean
+) =>
   useQuery({
     queryKey: [
       "gold",
       "mv_top_clientes_gestor",
       gestorNome,
-      selectedMonthOrUndefined(selectedMonth) ?? new Date().getMonth() + 1,
+      isYtdView ? "ytd" : selectedMonthOrUndefined(selectedMonth) ?? new Date().getMonth() + 1,
     ],
     enabled: Boolean(gestorNome),
     queryFn: async (): Promise<TopClienteGestor[]> =>
@@ -310,8 +314,9 @@ export const useTopClientesGestor = (gestorNome: string | null, selectedMonth?: 
             valor_mtd: 0,
           };
           const valor = Number(r?.valor ?? r?.valor_ganho ?? r?.valor_total ?? 0);
-          if (rowMonth <= month) cur.valor_ytd += valor;
-          if (rowMonth === month) cur.valor_mtd += valor;
+          // Em modo YTD-View, acumulamos o ano todo (ignora selectedMonth).
+          if (isYtdView || rowMonth <= month) cur.valor_ytd += valor;
+          if (!isYtdView && rowMonth === month) cur.valor_mtd += valor;
           agg.set(empresaNome, cur);
         }
         return Array.from(agg.values()).sort((a, b) => b.valor_ytd - a.valor_ytd);
