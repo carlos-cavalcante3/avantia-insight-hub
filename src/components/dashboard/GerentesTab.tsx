@@ -23,11 +23,19 @@ import {
   useRankingVisitas,
   useCurvaEvolucaoGlobal,
   usePipelineAbertoTodosGestores,
+  usePrevisaoVendasMensal,
 } from "@/hooks/useGerentesData";
 import { useVendasGestorPeriodo } from "@/hooks/useVendasData";
-import { isGerenteWhitelisted } from "@/lib/gerentes";
+import { isGerenteWhitelisted, EQUIPE_PUBLICO, EQUIPE_PRIVADO, matchNomeInList } from "@/lib/gerentes";
 import { getManagerColor } from "@/lib/managerColors";
 import { filterCurvaValid } from "@/lib/dateFilters";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 /* ============================================================
  * Helpers
