@@ -387,12 +387,12 @@ export interface CurvaGlobalPonto {
 
 export const useCurvaEvolucaoGlobal = () =>
   useQuery({
-    queryKey: ["gold", "mv_curva_evolucao_global"],
+    queryKey: ["gold", "mv_curva_evolucao_global_oport_geradas"],
     queryFn: async (): Promise<CurvaGlobalPonto[]> =>
       guard(async () => {
         const { data, error } = await supabaseGold
-          .from("mv_curva_evolucao_gestor")
-          .select("ano, mes, qtd_oportunidades, gestor_nome");
+          .from("mv_oportunidades_geradas_mes")
+          .select("ano, mes, qtd_geradas, qtd_oportunidades, gestor_nome");
         if (error) throw error;
         const map = new Map<string, CurvaGlobalPonto>();
         for (const r of (data ?? []) as Record<string, unknown>[]) {
@@ -408,7 +408,7 @@ export const useCurvaEvolucaoGlobal = () =>
             label: mesLabelCurto(ano, mes),
             qtd_oportunidades: 0,
           };
-          const qtd = Number(r.qtd_oportunidades ?? 0);
+          const qtd = Number(r.qtd_geradas ?? r.qtd_oportunidades ?? 0);
           cur.qtd_oportunidades += qtd;
           cur[gestorNome] = Number(cur[gestorNome] ?? 0) + qtd;
           map.set(key, cur);
@@ -421,6 +421,44 @@ export const useCurvaEvolucaoGlobal = () =>
       }),
     staleTime: 5 * 60 * 1000,
   });
+
+/* --------- mv_previsao_vendas_mensal --------- */
+
+export interface PrevisaoVendasMensalRow {
+  gestor_nome: string;
+  ano: number;
+  mes: number;
+  valor_previsto: number;
+}
+
+/** Previsão de vendas mensal por gestor — `gold.mv_previsao_vendas_mensal`.
+ *  Retorna um Map nome-normalizado → valor previsto do mês/ano selecionado. */
+export const usePrevisaoVendasMensal = (selectedMonth?: number) =>
+  useQuery({
+    queryKey: ["gold", "mv_previsao_vendas_mensal", selectedMonthOrUndefined(selectedMonth) ?? new Date().getMonth() + 1],
+    queryFn: async (): Promise<Map<string, number>> =>
+      guard(async () => {
+        const { data, error } = await supabaseGold
+          .from("mv_previsao_vendas_mensal")
+          .select("*");
+        if (error) throw error;
+        const month = selectedMonthOrUndefined(selectedMonth) ?? new Date().getMonth() + 1;
+        const year = new Date().getFullYear();
+        const map = new Map<string, number>();
+        for (const r of (data ?? []) as Record<string, unknown>[]) {
+          if (Number(r.ano ?? year) !== year) continue;
+          if (Number(r.mes ?? 0) !== month) continue;
+          const nome = String(r.gestor_nome ?? r.gerente_nome ?? "").trim();
+          if (!nome) continue;
+          const key = nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+          const valor = Number(r.valor_previsto ?? r.previsao ?? r.valor ?? 0);
+          map.set(key, (map.get(key) ?? 0) + valor);
+        }
+        return map;
+      }),
+    staleTime: 5 * 60 * 1000,
+  });
+
 
 /* --------- mv_oportunidades_geradas_mes --------- */
 
