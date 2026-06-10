@@ -146,7 +146,8 @@ const OportunidadesTooltip = ({
   );
 };
 
-const TEAM_VIEW = "__team__";
+const TEAM_PUBLICO = "__team_publico__";
+const TEAM_PRIVADO = "__team_privado__";
 
 export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps) => {
   const currentMonth = new Date().getMonth() + 1;
@@ -172,14 +173,16 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
     [perf.data]
   );
 
-  // Visão local: "Equipe (Consolidado)" como default
-  const [viewMode, setViewMode] = useState<string>(TEAM_VIEW);
+  // Visão local: Equipe Público (default)
+  const [viewMode, setViewMode] = useState<string>(TEAM_PUBLICO);
   useEffect(() => {
-    // sincroniza se Index trocar de gestor via header
     if (gestor && gerentesList.includes(gestor)) setViewMode(gestor);
   }, [gestor, gerentesList]);
 
-  const isTeam = viewMode === TEAM_VIEW;
+  const isTeamPublico = viewMode === TEAM_PUBLICO;
+  const isTeamPrivado = viewMode === TEAM_PRIVADO;
+  const isTeam = isTeamPublico || isTeamPrivado;
+  const equipeList = isTeamPublico ? EQUIPE_PUBLICO : isTeamPrivado ? EQUIPE_PRIVADO : null;
   const activeGestor = isTeam ? null : viewMode;
 
   // Hooks individuais (dependentes do gestor selecionado)
@@ -193,7 +196,12 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
   const normNome = (s: string) => normalizeNome(s ?? "");
 
   // ----- Agregações por modo (equipe x individual) -----
-  const perfWL = (perf.data ?? []).filter((g) => isGerenteWhitelisted(g.gestor_nome));
+  const passaEquipe = (nome: string) =>
+    !equipeList || matchNomeInList(nome, equipeList);
+
+  const perfWL = (perf.data ?? [])
+    .filter((g) => isGerenteWhitelisted(g.gestor_nome))
+    .filter((g) => passaEquipe(g.gestor_nome));
 
   const vendasYtdValor = isTeam
     ? (vendasGestor.data?.ytd ?? [])
