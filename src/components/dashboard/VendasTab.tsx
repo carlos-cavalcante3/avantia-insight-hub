@@ -1083,6 +1083,45 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
         )}
       </ReportCard>
 
+      {/* Composição de Vendas por Setor */}
+      <ReportCard
+        title="Composição de Vendas por Setor"
+        subtitle="Receita total mês a mês — Público × Privado × Áudio e Vídeo"
+      >
+        {composicaoPublico.isLoading || composicaoPrivado.isLoading || composicaoAV.isLoading ? (
+          <Skeleton className="h-[220px] w-full" />
+        ) : (
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={composicaoSetorData} margin={{ top: 24, right: 16, left: 8, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+              <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+              <YAxis
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={11}
+                tickFormatter={(v: number) => formatBRL(Number(v))}
+                width={56}
+              />
+              <RTooltip
+                cursor={{ fill: "hsl(var(--muted) / 0.2)" }}
+                contentStyle={{
+                  background: "hsl(var(--popover))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+                formatter={(value: number, name: string) => [formatBRL(Number(value)), name]}
+              />
+              <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="publico" name="Público" stackId="setor" fill="#3b82f6" maxBarSize={40} />
+              <Bar dataKey="privado" name="Privado" stackId="setor" fill="#f97316" maxBarSize={40} />
+              <Bar dataKey="audio_video" name="Áudio e Vídeo" stackId="setor" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </ReportCard>
+
+
+
 
 
 
