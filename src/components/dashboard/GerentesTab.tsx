@@ -585,6 +585,12 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
                       {formatBRL(pipelineDoGerente(g.gestor_nome))}
                     </span>
                   </span>
+                  <span className="text-muted-foreground col-span-2">
+                    Previsão de Vendas MTD:{" "}
+                    <span className="font-semibold text-foreground tabular-nums">
+                      {formatBRL(previsaoDoGerente(g.gestor_nome))}
+                    </span>
+                  </span>
                   <span className="col-span-2 mt-1">
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                       <span>Meta YTD: {formatBRL(META_INDIVIDUAL_GERENTE)}</span>
