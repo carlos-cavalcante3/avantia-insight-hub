@@ -672,6 +672,9 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
   const gestores = useVendasGestorPeriodo(sector, selectedMonth);
   const refs2025 = useReferenciasVendasAno2025(sector, selectedMonth);
   const composicao = useVendasComposicaoMesAMes(sector, selectedMonth);
+  const composicaoPublico = useVendasComposicaoMesAMes("publico", selectedMonth);
+  const composicaoPrivado = useVendasComposicaoMesAMes("privado", selectedMonth);
+  const composicaoAV = useVendasComposicaoMesAMes("audio_video", selectedMonth);
 
 
   /* Soma das Propostas Colocadas (universo completo — sem whitelist).
