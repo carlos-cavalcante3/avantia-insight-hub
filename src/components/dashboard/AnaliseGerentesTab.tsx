@@ -662,7 +662,36 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
             Sem clientes na carteira deste gerente.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* Sumário da Carteira */}
+            {(() => {
+              const rows = carteira.data ?? [];
+              const total = rows.length;
+              const ativos = rows.filter(
+                (r) => Number((r as unknown as { is_ativo?: number }).is_ativo ?? 0) === 1
+              ).length;
+              const oportAbertas = rows.reduce(
+                (acc, r) => acc + Number(r.oportunidades_atuais ?? 0),
+                0
+              );
+              return (
+                <div className="grid grid-cols-3 gap-3 mb-3">
+                  <div className="rounded-md border border-slate-800 bg-slate-900/60 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-slate-400">Total de Clientes</p>
+                    <p className="text-xl font-black text-slate-50 tabular-nums">{formatNumber(total)}</p>
+                  </div>
+                  <div className="rounded-md border border-slate-800 bg-slate-900/60 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-slate-400">Clientes Ativos</p>
+                    <p className="text-xl font-black text-emerald-400 tabular-nums">{formatNumber(ativos)}</p>
+                  </div>
+                  <div className="rounded-md border border-slate-800 bg-slate-900/60 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-slate-400">Oportunidades Abertas</p>
+                    <p className="text-xl font-black text-blue-400 tabular-nums">{formatNumber(oportAbertas)}</p>
+                  </div>
+                </div>
+              );
+            })()}
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
