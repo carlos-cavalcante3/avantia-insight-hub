@@ -782,7 +782,8 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
                   })}
               </TableBody>
             </Table>
-          </div>
+            </div>
+          </>
         )}
       </ReportCard>
     </div>
