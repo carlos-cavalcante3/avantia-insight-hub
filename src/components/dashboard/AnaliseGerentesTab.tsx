@@ -296,7 +296,8 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={TEAM_VIEW}>Visão da Equipe (Consolidado)</SelectItem>
+            <SelectItem value={TEAM_PUBLICO}>Equipe Público</SelectItem>
+            <SelectItem value={TEAM_PRIVADO}>Equipe Privado</SelectItem>
             {gerentesList.map((g) => (
               <SelectItem key={g} value={g}>
                 {g}
