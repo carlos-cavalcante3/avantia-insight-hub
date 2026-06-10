@@ -335,7 +335,25 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
 
   return (
     <>
+      {/* Seletor de Equipe */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+          Equipe
+        </span>
+        <Select value={equipeFiltro} onValueChange={(v) => setEquipeFiltro(v as "global" | "publico" | "privado")}>
+          <SelectTrigger className="h-9 w-[220px] bg-slate-900 border-slate-800">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="global">Visão Global</SelectItem>
+            <SelectItem value="publico">Equipe Público</SelectItem>
+            <SelectItem value="privado">Equipe Privado</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Bloco 1 — Volume vendido por gerente */}
+
       <ReportCard
         title="Volume Total Vendido por Gerente (YTD)"
         subtitle="Volume financeiro acumulado no ano · ordenado do maior para o menor"
