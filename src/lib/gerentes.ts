@@ -19,16 +19,50 @@ export const GERENTE_KEYS = [
   "alexandre",
   "andre henrique",
   "claudinei",
+  "claudiney",
   "dayane",
   "eder",
   "philipp",
   "philip",
+  "phillipe",
   "maia",
   "rabitto",
   "carlos trindade",
   "andre garrido",
   "fabio moraes",
 ];
+
+/** Equipes nomeadas — usadas para filtrar listas/painéis por setor. */
+export const EQUIPE_PUBLICO = [
+  "André Garrido",
+  "Carlos Trindade",
+  "Fabio Moraes",
+];
+
+export const EQUIPE_PRIVADO = [
+  "Alexandre Soares",
+  "André Henrique dos Santos",
+  "Claudiney da costa",
+  "Dayane Lima",
+  "Eder cosmo",
+  "João Rabitto",
+  "Phillipe Maia",
+];
+
+/** Verifica se um nome bate com algum nome da lista — ignora acentos e
+ *  maiúsculas, com includes bidirecional para tolerar variações (sobrenome
+ *  parcial, abreviações etc.). */
+export const matchNomeInList = (
+  nome: string | null | undefined,
+  list: string[]
+): boolean => {
+  const a = stripAccents(nome ?? "");
+  if (!a) return false;
+  return list.some((b) => {
+    const nb = stripAccents(b);
+    return a.includes(nb) || nb.includes(a);
+  });
+};
 
 export const isGerenteWhitelisted = (nome: string | null | undefined): boolean => {
   const norm = stripAccents(nome ?? "");
