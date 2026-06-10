@@ -231,10 +231,18 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
 
   if (perf.error) return <ErrorState message={(perf.error as Error).message} />;
 
-  // Whitelist absoluta para todas as visualizações desta aba
+  // Whitelist absoluta + filtro de equipe escolhido no topo.
+  const equipeList =
+    equipeFiltro === "publico" ? EQUIPE_PUBLICO : equipeFiltro === "privado" ? EQUIPE_PRIVADO : null;
+  const passaEquipe = (nome: string) =>
+    !equipeList || matchNomeInList(nome, equipeList);
+
   const dataWL = useMemo(
-    () => (perf.data ?? []).filter((g) => isGerenteWhitelisted(g.gestor_nome)),
-    [perf.data]
+    () =>
+      (perf.data ?? [])
+        .filter((g) => isGerenteWhitelisted(g.gestor_nome))
+        .filter((g) => passaEquipe(g.gestor_nome)),
+    [perf.data, equipeFiltro]
   );
 
   const sortedByVolume = useMemo(
@@ -246,6 +254,7 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
     () =>
       (vendasGestor.data?.ytd ?? [])
         .filter((g) => isGerenteWhitelisted(g.gestor_nome))
+        .filter((g) => passaEquipe(g.gestor_nome))
         .map((g) => ({
           label: (g.gestor_nome ?? "").trim() || "—",
           valor: Number(g.valor_ytd ?? 0),
@@ -255,8 +264,9 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
           })),
         }))
         .sort((a, b) => b.valor - a.valor),
-    [vendasGestor.data]
+    [vendasGestor.data, equipeFiltro]
   );
+
 
   /* Movs / visitas — última movimentação por gerente. Não temos
    * "última data" na view atual, então usamos a quantidade como proxy:
