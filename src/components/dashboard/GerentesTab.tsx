@@ -292,12 +292,18 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
   }, [dataWL, movs.data]);
 
   const movsWL = useMemo(
-    () => (movs.data ?? []).filter((m) => isGerenteWhitelisted(m.responsavel)),
-    [movs.data]
+    () =>
+      (movs.data ?? [])
+        .filter((m) => isGerenteWhitelisted(m.responsavel))
+        .filter((m) => passaEquipe(m.responsavel)),
+    [movs.data, equipeFiltro]
   );
   const visitasWL = useMemo(
-    () => (visitas.data ?? []).filter((v) => isGerenteWhitelisted(v.responsavel)),
-    [visitas.data]
+    () =>
+      (visitas.data ?? [])
+        .filter((v) => isGerenteWhitelisted(v.responsavel))
+        .filter((v) => passaEquipe(v.responsavel)),
+    [visitas.data, equipeFiltro]
   );
 
   const curvaData = useMemo(
@@ -310,11 +316,11 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
     const names = new Set<string>();
     for (const row of curvaData) {
       Object.keys(row).forEach((key) => {
-        if (!reserved.has(key)) names.add(key);
+        if (!reserved.has(key) && passaEquipe(key)) names.add(key);
       });
     }
     return Array.from(names);
-  }, [curvaData]);
+  }, [curvaData, equipeFiltro]);
 
   const toggleManagerLine = (value: unknown) => {
     const manager = String(value ?? "");
