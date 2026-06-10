@@ -882,6 +882,24 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
     receita_total: d.unica + d.recorrente,
   }));
 
+  // Composição por SETOR: combina os 3 setores num único array (Público / Privado / Áudio e Vídeo).
+  const composicaoSetorData = useMemo(() => {
+    const pub = composicaoPublico.data ?? [];
+    const pri = composicaoPrivado.data ?? [];
+    const av = composicaoAV.data ?? [];
+    const len = Math.max(pub.length, pri.length, av.length);
+    const out: Array<{ label: string; publico: number; privado: number; audio_video: number }> = [];
+    for (let i = 0; i < len; i++) {
+      out.push({
+        label: pub[i]?.label ?? pri[i]?.label ?? av[i]?.label ?? "",
+        publico: (pub[i]?.unica ?? 0) + (pub[i]?.recorrente ?? 0),
+        privado: (pri[i]?.unica ?? 0) + (pri[i]?.recorrente ?? 0),
+        audio_video: (av[i]?.unica ?? 0) + (av[i]?.recorrente ?? 0),
+      });
+    }
+    return out;
+  }, [composicaoPublico.data, composicaoPrivado.data, composicaoAV.data]);
+
   const renderCompare2025 = (cur: number, prev: number | null | undefined, kind: "brl" | "number") => {
     if (prev == null) return null;
     const delta = prev > 0 ? ((cur / prev) - 1) * 100 : cur > 0 ? 100 : 0;
