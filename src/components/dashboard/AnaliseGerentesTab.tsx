@@ -206,6 +206,7 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
   const vendasYtdValor = isTeam
     ? (vendasGestor.data?.ytd ?? [])
         .filter((g) => isGerenteWhitelisted(g.gestor_nome))
+        .filter((g) => passaEquipe(g.gestor_nome))
         .reduce((acc, g) => acc + Number(g.valor_ytd ?? 0), 0)
     : Number(
         (vendasGestor.data?.ytd ?? []).find((g) => g.gestor_nome === activeGestor)?.valor_ytd ?? 0
@@ -214,6 +215,7 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
   const qtdYtdValor = isTeam
     ? (vendasGestor.data?.ytd ?? [])
         .filter((g) => isGerenteWhitelisted(g.gestor_nome))
+        .filter((g) => passaEquipe(g.gestor_nome))
         .reduce((acc, g) => acc + Number(g.qtd_ytd ?? 0), 0)
     : Number(
         (vendasGestor.data?.ytd ?? []).find((g) => g.gestor_nome === activeGestor)?.qtd_ytd ?? 0
@@ -222,6 +224,7 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
   const movsValor = isTeam
     ? (movs.data ?? [])
         .filter((m) => isGerenteWhitelisted(m.responsavel))
+        .filter((m) => passaEquipe(m.responsavel))
         .reduce((acc, m) => acc + Number(m.qtd ?? 0), 0)
     : Number(
         (movs.data ?? []).find((m) => normNome(m.responsavel) === normNome(activeGestor ?? ""))
@@ -231,6 +234,7 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
   const visitasValor = isTeam
     ? (visitas.data ?? [])
         .filter((v) => isGerenteWhitelisted(v.responsavel))
+        .filter((v) => passaEquipe(v.responsavel))
         .reduce((acc, v) => acc + Number(v.qtd ?? 0), 0)
     : Number(
         (visitas.data ?? []).find(
@@ -245,6 +249,7 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
   const pipelineValor = isTeam
     ? (pipelineAberto.data ?? [])
         .filter((r) => isGerenteWhitelisted(r.gestor_nome))
+        .filter((r) => passaEquipe(r.gestor_nome))
         .reduce((acc, r) => acc + Number(r.valor_total_aberto ?? 0), 0)
     : Number(
         (pipelineAberto.data ?? []).find(
@@ -252,9 +257,10 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
         )?.valor_total_aberto ?? 0
       );
 
-  // Meta YTD individual (5M por gerente) — em equipe, multiplica pelos gerentes whitelist
+  // Meta YTD individual (5M por gerente) — em equipe, multiplica pelos gerentes da equipe.
   const META_INDIVIDUAL = 5_000_000;
-  const metaYtd = isTeam ? META_INDIVIDUAL * gerentesList.length : META_INDIVIDUAL;
+  const equipeSize = isTeam ? (equipeList?.length ?? gerentesList.length) : 1;
+  const metaYtd = isTeam ? META_INDIVIDUAL * equipeSize : META_INDIVIDUAL;
   const metaPct = metaYtd > 0 ? Math.min((vendasYtdValor / metaYtd) * 100, 100) : 0;
 
   const isLoadingTop = perf.isLoading || vendasGestor.isLoading;
