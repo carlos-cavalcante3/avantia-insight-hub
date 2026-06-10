@@ -50,7 +50,7 @@ import {
   usePipelineAbertoTodosGestores,
 } from "@/hooks/useGerentesData";
 import { useVendasGestorPeriodo } from "@/hooks/useVendasData";
-import { isGerenteWhitelisted } from "@/lib/gerentes";
+import { isGerenteWhitelisted, EQUIPE_PUBLICO, EQUIPE_PRIVADO, matchNomeInList } from "@/lib/gerentes";
 import { filterCurvaValid } from "@/lib/dateFilters";
 
 interface AnaliseGerentesTabProps {
