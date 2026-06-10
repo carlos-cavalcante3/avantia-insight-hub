@@ -208,6 +208,7 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
   const visitas = useRankingVisitas(200);
   const curvaGlobal = useCurvaEvolucaoGlobal();
   const pipelineAberto = usePipelineAbertoTodosGestores();
+  const previsao = usePrevisaoVendasMensal(selectedMonth);
   const pipelineMap = useMemo(() => {
     const norm = (s: string) =>
       s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -221,6 +222,11 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
     const norm = nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
     return pipelineMap.get(norm) ?? 0;
   };
+  const previsaoDoGerente = (nome: string) => {
+    const norm = nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    return previsao.data?.get(norm) ?? 0;
+  };
+  const [equipeFiltro, setEquipeFiltro] = useState<"global" | "publico" | "privado">("global");
   const [hiddenManagers, setHiddenManagers] = useState<Set<string>>(() => new Set());
 
   if (perf.error) return <ErrorState message={(perf.error as Error).message} />;
