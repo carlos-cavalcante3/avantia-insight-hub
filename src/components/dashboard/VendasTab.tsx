@@ -672,6 +672,9 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
   const gestores = useVendasGestorPeriodo(sector, selectedMonth);
   const refs2025 = useReferenciasVendasAno2025(sector, selectedMonth);
   const composicao = useVendasComposicaoMesAMes(sector, selectedMonth);
+  const composicaoPublico = useVendasComposicaoMesAMes("publico", selectedMonth);
+  const composicaoPrivado = useVendasComposicaoMesAMes("privado", selectedMonth);
+  const composicaoAV = useVendasComposicaoMesAMes("audio_video", selectedMonth);
 
 
   /* Soma das Propostas Colocadas (universo completo — sem whitelist).
@@ -879,6 +882,24 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
     receita_total: d.unica + d.recorrente,
   }));
 
+  // Composição por SETOR: combina os 3 setores num único array (Público / Privado / Áudio e Vídeo).
+  const composicaoSetorData = useMemo(() => {
+    const pub = composicaoPublico.data ?? [];
+    const pri = composicaoPrivado.data ?? [];
+    const av = composicaoAV.data ?? [];
+    const len = Math.max(pub.length, pri.length, av.length);
+    const out: Array<{ label: string; publico: number; privado: number; audio_video: number }> = [];
+    for (let i = 0; i < len; i++) {
+      out.push({
+        label: pub[i]?.label ?? pri[i]?.label ?? av[i]?.label ?? "",
+        publico: (pub[i]?.unica ?? 0) + (pub[i]?.recorrente ?? 0),
+        privado: (pri[i]?.unica ?? 0) + (pri[i]?.recorrente ?? 0),
+        audio_video: (av[i]?.unica ?? 0) + (av[i]?.recorrente ?? 0),
+      });
+    }
+    return out;
+  }, [composicaoPublico.data, composicaoPrivado.data, composicaoAV.data]);
+
   const renderCompare2025 = (cur: number, prev: number | null | undefined, kind: "brl" | "number") => {
     if (prev == null) return null;
     const delta = prev > 0 ? ((cur / prev) - 1) * 100 : cur > 0 ? 100 : 0;
@@ -1009,7 +1030,7 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
               <>
                 <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">{ytdTaxa.value}</p>
                 <div className="mt-1 flex flex-col text-xs text-muted-foreground tabular-nums">
-                  <span>Oportunidades: <strong className="text-slate-200">{formatNumber(kpis.data?.oport_ytd ?? 0)}</strong></span>
+                  <span>Propostas Enviadas: <strong className="text-slate-200">{formatNumber(kpis.data?.oport_ytd ?? 0)}</strong></span>
                   <span>Vendas: <strong className="text-slate-200">{formatNumber(kpis.data?.qtd_ytd ?? 0)}</strong></span>
                 </div>
               </>
@@ -1061,6 +1082,45 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
           </ResponsiveContainer>
         )}
       </ReportCard>
+
+      {/* Composição de Vendas por Setor */}
+      <ReportCard
+        title="Composição de Vendas por Setor"
+        subtitle="Receita total mês a mês — Público × Privado × Áudio e Vídeo"
+      >
+        {composicaoPublico.isLoading || composicaoPrivado.isLoading || composicaoAV.isLoading ? (
+          <Skeleton className="h-[220px] w-full" />
+        ) : (
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={composicaoSetorData} margin={{ top: 24, right: 16, left: 8, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+              <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+              <YAxis
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={11}
+                tickFormatter={(v: number) => formatBRL(Number(v))}
+                width={56}
+              />
+              <RTooltip
+                cursor={{ fill: "hsl(var(--muted) / 0.2)" }}
+                contentStyle={{
+                  background: "hsl(var(--popover))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+                formatter={(value: number, name: string) => [formatBRL(Number(value)), name]}
+              />
+              <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="publico" name="Público" stackId="setor" fill="#3b82f6" maxBarSize={40} />
+              <Bar dataKey="privado" name="Privado" stackId="setor" fill="#f97316" maxBarSize={40} />
+              <Bar dataKey="audio_video" name="Áudio e Vídeo" stackId="setor" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </ReportCard>
+
+
 
 
 

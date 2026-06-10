@@ -23,11 +23,19 @@ import {
   useRankingVisitas,
   useCurvaEvolucaoGlobal,
   usePipelineAbertoTodosGestores,
+  usePrevisaoVendasMensal,
 } from "@/hooks/useGerentesData";
 import { useVendasGestorPeriodo } from "@/hooks/useVendasData";
-import { isGerenteWhitelisted } from "@/lib/gerentes";
+import { isGerenteWhitelisted, EQUIPE_PUBLICO, EQUIPE_PRIVADO, matchNomeInList } from "@/lib/gerentes";
 import { getManagerColor } from "@/lib/managerColors";
 import { filterCurvaValid } from "@/lib/dateFilters";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 /* ============================================================
  * Helpers
@@ -200,6 +208,7 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
   const visitas = useRankingVisitas(200);
   const curvaGlobal = useCurvaEvolucaoGlobal();
   const pipelineAberto = usePipelineAbertoTodosGestores();
+  const previsao = usePrevisaoVendasMensal(selectedMonth);
   const pipelineMap = useMemo(() => {
     const norm = (s: string) =>
       s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -213,14 +222,27 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
     const norm = nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
     return pipelineMap.get(norm) ?? 0;
   };
+  const previsaoDoGerente = (nome: string) => {
+    const norm = nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    return previsao.data?.get(norm) ?? 0;
+  };
+  const [equipeFiltro, setEquipeFiltro] = useState<"global" | "publico" | "privado">("global");
   const [hiddenManagers, setHiddenManagers] = useState<Set<string>>(() => new Set());
 
   if (perf.error) return <ErrorState message={(perf.error as Error).message} />;
 
-  // Whitelist absoluta para todas as visualizações desta aba
+  // Whitelist absoluta + filtro de equipe escolhido no topo.
+  const equipeList =
+    equipeFiltro === "publico" ? EQUIPE_PUBLICO : equipeFiltro === "privado" ? EQUIPE_PRIVADO : null;
+  const passaEquipe = (nome: string) =>
+    !equipeList || matchNomeInList(nome, equipeList);
+
   const dataWL = useMemo(
-    () => (perf.data ?? []).filter((g) => isGerenteWhitelisted(g.gestor_nome)),
-    [perf.data]
+    () =>
+      (perf.data ?? [])
+        .filter((g) => isGerenteWhitelisted(g.gestor_nome))
+        .filter((g) => passaEquipe(g.gestor_nome)),
+    [perf.data, equipeFiltro]
   );
 
   const sortedByVolume = useMemo(
@@ -232,6 +254,7 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
     () =>
       (vendasGestor.data?.ytd ?? [])
         .filter((g) => isGerenteWhitelisted(g.gestor_nome))
+        .filter((g) => passaEquipe(g.gestor_nome))
         .map((g) => ({
           label: (g.gestor_nome ?? "").trim() || "—",
           valor: Number(g.valor_ytd ?? 0),
@@ -241,8 +264,9 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
           })),
         }))
         .sort((a, b) => b.valor - a.valor),
-    [vendasGestor.data]
+    [vendasGestor.data, equipeFiltro]
   );
+
 
   /* Movs / visitas — última movimentação por gerente. Não temos
    * "última data" na view atual, então usamos a quantidade como proxy:
@@ -268,12 +292,18 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
   }, [dataWL, movs.data]);
 
   const movsWL = useMemo(
-    () => (movs.data ?? []).filter((m) => isGerenteWhitelisted(m.responsavel)),
-    [movs.data]
+    () =>
+      (movs.data ?? [])
+        .filter((m) => isGerenteWhitelisted(m.responsavel))
+        .filter((m) => passaEquipe(m.responsavel)),
+    [movs.data, equipeFiltro]
   );
   const visitasWL = useMemo(
-    () => (visitas.data ?? []).filter((v) => isGerenteWhitelisted(v.responsavel)),
-    [visitas.data]
+    () =>
+      (visitas.data ?? [])
+        .filter((v) => isGerenteWhitelisted(v.responsavel))
+        .filter((v) => passaEquipe(v.responsavel)),
+    [visitas.data, equipeFiltro]
   );
 
   const curvaData = useMemo(
@@ -286,11 +316,11 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
     const names = new Set<string>();
     for (const row of curvaData) {
       Object.keys(row).forEach((key) => {
-        if (!reserved.has(key)) names.add(key);
+        if (!reserved.has(key) && passaEquipe(key)) names.add(key);
       });
     }
     return Array.from(names);
-  }, [curvaData]);
+  }, [curvaData, equipeFiltro]);
 
   const toggleManagerLine = (value: unknown) => {
     const manager = String(value ?? "");
@@ -305,7 +335,25 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
 
   return (
     <>
+      {/* Seletor de Equipe */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+          Equipe
+        </span>
+        <Select value={equipeFiltro} onValueChange={(v) => setEquipeFiltro(v as "global" | "publico" | "privado")}>
+          <SelectTrigger className="h-9 w-[220px] bg-slate-900 border-slate-800">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="global">Visão Global</SelectItem>
+            <SelectItem value="publico">Equipe Público</SelectItem>
+            <SelectItem value="privado">Equipe Privado</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Bloco 1 — Volume vendido por gerente */}
+
       <ReportCard
         title="Volume Total Vendido por Gerente (YTD)"
         subtitle="Volume financeiro acumulado no ano · ordenado do maior para o menor"
@@ -535,6 +583,12 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
                     Pipeline:{" "}
                     <span className="font-semibold text-foreground tabular-nums">
                       {formatBRL(pipelineDoGerente(g.gestor_nome))}
+                    </span>
+                  </span>
+                  <span className="text-muted-foreground col-span-2">
+                    Previsão de Vendas MTD:{" "}
+                    <span className="font-semibold text-foreground tabular-nums">
+                      {formatBRL(previsaoDoGerente(g.gestor_nome))}
                     </span>
                   </span>
                   <span className="col-span-2 mt-1">

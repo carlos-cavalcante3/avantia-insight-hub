@@ -50,7 +50,7 @@ import {
   usePipelineAbertoTodosGestores,
 } from "@/hooks/useGerentesData";
 import { useVendasGestorPeriodo } from "@/hooks/useVendasData";
-import { isGerenteWhitelisted } from "@/lib/gerentes";
+import { isGerenteWhitelisted, EQUIPE_PUBLICO, EQUIPE_PRIVADO, matchNomeInList } from "@/lib/gerentes";
 import { filterCurvaValid } from "@/lib/dateFilters";
 
 interface AnaliseGerentesTabProps {
@@ -146,7 +146,8 @@ const OportunidadesTooltip = ({
   );
 };
 
-const TEAM_VIEW = "__team__";
+const TEAM_PUBLICO = "__team_publico__";
+const TEAM_PRIVADO = "__team_privado__";
 
 export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps) => {
   const currentMonth = new Date().getMonth() + 1;
@@ -172,14 +173,16 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
     [perf.data]
   );
 
-  // Visão local: "Equipe (Consolidado)" como default
-  const [viewMode, setViewMode] = useState<string>(TEAM_VIEW);
+  // Visão local: Equipe Público (default)
+  const [viewMode, setViewMode] = useState<string>(TEAM_PUBLICO);
   useEffect(() => {
-    // sincroniza se Index trocar de gestor via header
     if (gestor && gerentesList.includes(gestor)) setViewMode(gestor);
   }, [gestor, gerentesList]);
 
-  const isTeam = viewMode === TEAM_VIEW;
+  const isTeamPublico = viewMode === TEAM_PUBLICO;
+  const isTeamPrivado = viewMode === TEAM_PRIVADO;
+  const isTeam = isTeamPublico || isTeamPrivado;
+  const equipeList = isTeamPublico ? EQUIPE_PUBLICO : isTeamPrivado ? EQUIPE_PRIVADO : null;
   const activeGestor = isTeam ? null : viewMode;
 
   // Hooks individuais (dependentes do gestor selecionado)
@@ -193,11 +196,17 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
   const normNome = (s: string) => normalizeNome(s ?? "");
 
   // ----- Agregações por modo (equipe x individual) -----
-  const perfWL = (perf.data ?? []).filter((g) => isGerenteWhitelisted(g.gestor_nome));
+  const passaEquipe = (nome: string) =>
+    !equipeList || matchNomeInList(nome, equipeList);
+
+  const perfWL = (perf.data ?? [])
+    .filter((g) => isGerenteWhitelisted(g.gestor_nome))
+    .filter((g) => passaEquipe(g.gestor_nome));
 
   const vendasYtdValor = isTeam
     ? (vendasGestor.data?.ytd ?? [])
         .filter((g) => isGerenteWhitelisted(g.gestor_nome))
+        .filter((g) => passaEquipe(g.gestor_nome))
         .reduce((acc, g) => acc + Number(g.valor_ytd ?? 0), 0)
     : Number(
         (vendasGestor.data?.ytd ?? []).find((g) => g.gestor_nome === activeGestor)?.valor_ytd ?? 0
@@ -206,6 +215,7 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
   const qtdYtdValor = isTeam
     ? (vendasGestor.data?.ytd ?? [])
         .filter((g) => isGerenteWhitelisted(g.gestor_nome))
+        .filter((g) => passaEquipe(g.gestor_nome))
         .reduce((acc, g) => acc + Number(g.qtd_ytd ?? 0), 0)
     : Number(
         (vendasGestor.data?.ytd ?? []).find((g) => g.gestor_nome === activeGestor)?.qtd_ytd ?? 0
@@ -214,6 +224,7 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
   const movsValor = isTeam
     ? (movs.data ?? [])
         .filter((m) => isGerenteWhitelisted(m.responsavel))
+        .filter((m) => passaEquipe(m.responsavel))
         .reduce((acc, m) => acc + Number(m.qtd ?? 0), 0)
     : Number(
         (movs.data ?? []).find((m) => normNome(m.responsavel) === normNome(activeGestor ?? ""))
@@ -223,6 +234,7 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
   const visitasValor = isTeam
     ? (visitas.data ?? [])
         .filter((v) => isGerenteWhitelisted(v.responsavel))
+        .filter((v) => passaEquipe(v.responsavel))
         .reduce((acc, v) => acc + Number(v.qtd ?? 0), 0)
     : Number(
         (visitas.data ?? []).find(
@@ -237,6 +249,7 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
   const pipelineValor = isTeam
     ? (pipelineAberto.data ?? [])
         .filter((r) => isGerenteWhitelisted(r.gestor_nome))
+        .filter((r) => passaEquipe(r.gestor_nome))
         .reduce((acc, r) => acc + Number(r.valor_total_aberto ?? 0), 0)
     : Number(
         (pipelineAberto.data ?? []).find(
@@ -244,9 +257,10 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
         )?.valor_total_aberto ?? 0
       );
 
-  // Meta YTD individual (5M por gerente) — em equipe, multiplica pelos gerentes whitelist
+  // Meta YTD individual (5M por gerente) — em equipe, multiplica pelos gerentes da equipe.
   const META_INDIVIDUAL = 5_000_000;
-  const metaYtd = isTeam ? META_INDIVIDUAL * gerentesList.length : META_INDIVIDUAL;
+  const equipeSize = isTeam ? (equipeList?.length ?? gerentesList.length) : 1;
+  const metaYtd = isTeam ? META_INDIVIDUAL * equipeSize : META_INDIVIDUAL;
   const metaPct = metaYtd > 0 ? Math.min((vendasYtdValor / metaYtd) * 100, 100) : 0;
 
   const isLoadingTop = perf.isLoading || vendasGestor.isLoading;
@@ -282,7 +296,8 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={TEAM_VIEW}>Visão da Equipe (Consolidado)</SelectItem>
+            <SelectItem value={TEAM_PUBLICO}>Equipe Público</SelectItem>
+            <SelectItem value={TEAM_PRIVADO}>Equipe Privado</SelectItem>
             {gerentesList.map((g) => (
               <SelectItem key={g} value={g}>
                 {g}
@@ -647,7 +662,36 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
             Sem clientes na carteira deste gerente.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* Sumário da Carteira */}
+            {(() => {
+              const rows = carteira.data ?? [];
+              const total = rows.length;
+              const ativos = rows.filter(
+                (r) => Number((r as unknown as { is_ativo?: number }).is_ativo ?? 0) === 1
+              ).length;
+              const oportAbertas = rows.reduce(
+                (acc, r) => acc + Number(r.oportunidades_atuais ?? 0),
+                0
+              );
+              return (
+                <div className="grid grid-cols-3 gap-3 mb-3">
+                  <div className="rounded-md border border-slate-800 bg-slate-900/60 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-slate-400">Total de Clientes</p>
+                    <p className="text-xl font-black text-slate-50 tabular-nums">{formatNumber(total)}</p>
+                  </div>
+                  <div className="rounded-md border border-slate-800 bg-slate-900/60 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-slate-400">Clientes Ativos</p>
+                    <p className="text-xl font-black text-emerald-400 tabular-nums">{formatNumber(ativos)}</p>
+                  </div>
+                  <div className="rounded-md border border-slate-800 bg-slate-900/60 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-slate-400">Oportunidades Abertas</p>
+                    <p className="text-xl font-black text-blue-400 tabular-nums">{formatNumber(oportAbertas)}</p>
+                  </div>
+                </div>
+              );
+            })()}
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -738,7 +782,8 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
                   })}
               </TableBody>
             </Table>
-          </div>
+            </div>
+          </>
         )}
       </ReportCard>
     </div>
