@@ -396,12 +396,12 @@ export const useCurvaEvolucaoGlobal = () =>
         if (error) throw error;
         const map = new Map<string, CurvaGlobalPonto>();
         for (const r of (data ?? []) as Record<string, unknown>[]) {
-          if (!isGerenteWhitelisted(String(r.gestor_nome ?? ""))) continue;
+          const gestorNome = String(r.gestor_nome ?? "").trim();
+          if (!gestorNome) continue;
           const ano = Number(r.ano ?? 0);
           const mes = Number(r.mes ?? 0);
           if (!ano || !mes) continue;
           const key = `${ano}-${String(mes).padStart(2, "0")}`;
-          const gestorNome = String(r.gestor_nome ?? "Nao atribuido").trim() || "Nao atribuido";
           const cur = map.get(key) ?? {
             ano,
             mes,
