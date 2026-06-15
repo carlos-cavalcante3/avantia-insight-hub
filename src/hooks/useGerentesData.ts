@@ -289,7 +289,10 @@ export const useTopClientesGestor = (
           .eq("gestor_nome", gestorNome);
         if (error) throw error;
         const currentYear = new Date().getFullYear();
-        const month = selectedMonthOrUndefined(selectedMonth) ?? new Date().getMonth() + 1;
+        // Em modo YTD, selectedMonth é COMPLETAMENTE ignorado.
+        const month = isYtdView
+          ? 12
+          : selectedMonthOrUndefined(selectedMonth) ?? new Date().getMonth() + 1;
         const rows = ((data ?? []) as Record<string, unknown>[]).filter((r) => {
           if (r.gestor_nome !== gestorNome) return false;
           // YTD view: aceita linhas sem 'ano' (views já agregadas) ou do ano corrente.
@@ -320,7 +323,7 @@ export const useTopClientesGestor = (
             valor_mtd: 0,
           };
           const valor = Number(r?.valor ?? r?.valor_ganho ?? r?.valor_total ?? 0);
-          // Em modo YTD-View, IGNORA selectedMonth: soma o ano inteiro.
+          // Em modo YTD-View, IGNORA selectedMonth: soma todos os meses do ano.
           if (isYtdView) {
             cur.valor_ytd += valor;
           } else {
