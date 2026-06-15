@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -51,19 +51,14 @@ import {
 } from "@/hooks/useGerentesData";
 import { useVendasGestorPeriodo } from "@/hooks/useVendasData";
 import { isGerenteWhitelisted, EQUIPE_PUBLICO, EQUIPE_PRIVADO, matchNomeInList } from "@/lib/gerentes";
+import { getMetaGerente, normalizeName } from "@/lib/metasGerentes";
 import { filterCurvaValid } from "@/lib/dateFilters";
 
 interface AnaliseGerentesTabProps {
-  gestor: string | null;
   periodo: string;
 }
 
-const normalizeNome = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
+const normNome = normalizeName;
 
 const diasDesde = (iso: string | null): number | null => {
   if (!iso) return null;
@@ -149,7 +144,7 @@ const OportunidadesTooltip = ({
 const TEAM_PUBLICO = "__team_publico__";
 const TEAM_PRIVADO = "__team_privado__";
 
-export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps) => {
+export const AnaliseGerentesTab = ({ periodo }: AnaliseGerentesTabProps) => {
   const currentMonth = new Date().getMonth() + 1;
   const selectedMonth = periodo === "ytd" ? currentMonth : Number(periodo.replace("mes-", ""));
 
@@ -175,9 +170,6 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
 
   // Visão local: Equipe Público (default)
   const [viewMode, setViewMode] = useState<string>(TEAM_PUBLICO);
-  useEffect(() => {
-    if (gestor && gerentesList.includes(gestor)) setViewMode(gestor);
-  }, [gestor, gerentesList]);
 
   const isTeamPublico = viewMode === TEAM_PUBLICO;
   const isTeamPrivado = viewMode === TEAM_PRIVADO;
@@ -192,8 +184,6 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
   const carteira = useCarteiraClientes(activeGestor);
 
   if (perf.error) return <ErrorState message={(perf.error as Error).message} />;
-
-  const normNome = (s: string) => normalizeNome(s ?? "");
 
   // ----- Agregações por modo (equipe x individual) -----
   const passaEquipe = (nome: string) =>
@@ -257,10 +247,10 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
         )?.valor_total_aberto ?? 0
       );
 
-  // Meta YTD individual (5M por gerente) — em equipe, multiplica pelos gerentes da equipe.
-  const META_INDIVIDUAL = 5_000_000;
-  const equipeSize = isTeam ? (equipeList?.length ?? gerentesList.length) : 1;
-  const metaYtd = isTeam ? META_INDIVIDUAL * equipeSize : META_INDIVIDUAL;
+  // Meta YTD dinâmica por gerente ou soma da subequipe.
+  const metaYtd = isTeam
+    ? (equipeList ?? []).reduce((acc, nome) => acc + getMetaGerente(nome), 0)
+    : getMetaGerente(activeGestor);
   const metaPct = metaYtd > 0 ? Math.min((vendasYtdValor / metaYtd) * 100, 100) : 0;
 
   const isLoadingTop = perf.isLoading || vendasGestor.isLoading;
@@ -310,7 +300,7 @@ export const AnaliseGerentesTab = ({ gestor, periodo }: AnaliseGerentesTabProps)
       {/* Grid central 2 linhas x 3 colunas */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Linha 1 */}
-        <ReportCard title="Meta de Vendas (YTD)" subtitle={`vs Meta ${formatBRL(metaYtd)}`}>
+        <ReportCard title="Meta de Vendas (YTD)" subtitle={`Meta: ${formatBRL(metaYtd)}`}>
           <div className="h-[140px] flex flex-col justify-center gap-2">
             {isLoadingTop ? (
               <Skeleton className="h-10 w-40 bg-slate-800" />

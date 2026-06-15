@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Sidebar, type DashboardTab } from "@/components/dashboard/Sidebar";
 import { Header } from "@/components/dashboard/Header";
@@ -6,17 +6,10 @@ import { VendasTab } from "@/components/dashboard/VendasTab";
 import { PipelineTab } from "@/components/dashboard/PipelineTab";
 import { GerentesTab } from "@/components/dashboard/GerentesTab";
 import { AnaliseGerentesTab } from "@/components/dashboard/AnaliseGerentesTab";
+import { EvolucaoOportunidadeTab } from "@/components/dashboard/EvolucaoOportunidadeTab";
 import { EstagnadosTable } from "@/components/dashboard/EstagnadosTable";
 import { MotivosPerdaChart } from "@/components/dashboard/MotivosPerdaChart";
 import { LicitacoesTab } from "@/components/dashboard/LicitacoesTab";
-import { ReportCard } from "@/components/dashboard/ReportCard";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { isGoldConfigured } from "@/lib/supabaseGold";
 import {
   type PipelineScope,
@@ -24,8 +17,6 @@ import {
   useMotivosPerda,
 } from "@/hooks/useDashboardData";
 import type { Sector } from "@/hooks/useVendasData";
-import { usePerformanceGestor } from "@/hooks/useGerentesData";
-import { isGerenteWhitelisted } from "@/lib/gerentes";
 
 const sectorToScope = (s: Sector): PipelineScope => {
   if (s === "publico") return "setor_publico";
@@ -37,44 +28,10 @@ const Index = () => {
   const [tab, setTab] = useState<DashboardTab>("vendas");
   const [sector, setSector] = useState<Sector>("avantia");
   const [periodo, setPeriodo] = useState("ytd");
-  const [gestorSelecionado, setGestorSelecionado] = useState<string | null>(null);
   const pipelineScope = sectorToScope(sector);
 
   const estagnados = useNegociosEstagnados(15, 50, pipelineScope);
   const motivos = useMotivosPerda(pipelineScope);
-  const perfGestores = usePerformanceGestor();
-
-  const gestoresList = useMemo(() => {
-    const todos = Array.from(
-      new Set((perfGestores.data ?? []).map((g) => g.gestor_nome).filter(Boolean))
-    );
-    return todos.filter(isGerenteWhitelisted).sort();
-  }, [perfGestores.data]);
-
-  useEffect(() => {
-    if (!gestorSelecionado && gestoresList.length > 0) {
-      setGestorSelecionado(gestoresList[0]);
-    }
-  }, [gestoresList, gestorSelecionado]);
-
-  const headerOverride =
-    tab === "analise_gerentes" ? (
-      <Select
-        value={gestorSelecionado ?? ""}
-        onValueChange={(v) => setGestorSelecionado(v)}
-      >
-        <SelectTrigger className="h-9">
-          <SelectValue placeholder="Selecione um gerente" />
-        </SelectTrigger>
-        <SelectContent>
-          {gestoresList.map((g) => (
-            <SelectItem key={g} value={g}>
-              {g}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    ) : undefined;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -86,8 +43,7 @@ const Index = () => {
           onSectorChange={setSector}
           periodo={periodo}
           onPeriodoChange={setPeriodo}
-          selectorOverride={headerOverride}
-          hideSectorSelector={tab === "gerentes"}
+          hideSectorSelector={tab === "gerentes" || tab === "analise_gerentes"}
         />
 
         <main className="px-3 sm:px-5 py-4 space-y-4 max-w-[1600px] mx-auto">
@@ -108,9 +64,9 @@ const Index = () => {
 
           {tab === "gerentes" && <GerentesTab periodo={periodo} />}
 
-          {tab === "analise_gerentes" && (
-            <AnaliseGerentesTab gestor={gestorSelecionado} periodo={periodo} />
-          )}
+          {tab === "analise_gerentes" && <AnaliseGerentesTab periodo={periodo} />}
+
+          {tab === "evolucao_oportunidade" && <EvolucaoOportunidadeTab />}
 
           {tab === "licitacoes" && <LicitacoesTab />}
 

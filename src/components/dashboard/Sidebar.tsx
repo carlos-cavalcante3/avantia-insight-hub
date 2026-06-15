@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { LayoutDashboard, Filter, Trophy, AlertTriangle, BarChart3, Scale } from "lucide-react";
+import { LayoutDashboard, Filter, Trophy, AlertTriangle, BarChart3, Scale, GitBranch } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -18,6 +18,7 @@ export type DashboardTab =
   | "pipeline"
   | "gerentes"
   | "analise_gerentes"
+  | "evolucao_oportunidade"
   | "licitacoes"
   | "alertas";
 
@@ -26,6 +27,7 @@ const nav: { key: DashboardTab; label: string; icon: typeof LayoutDashboard }[] 
   { key: "pipeline", label: "Pipeline", icon: Filter },
   { key: "gerentes", label: "Gerentes", icon: Trophy },
   { key: "analise_gerentes", label: "Análise de Gerentes", icon: BarChart3 },
+  { key: "evolucao_oportunidade", label: "Evolução da Oportunidade", icon: GitBranch },
   { key: "licitacoes", label: "Licitações", icon: Scale },
   { key: "alertas", label: "Alertas", icon: AlertTriangle },
 ];

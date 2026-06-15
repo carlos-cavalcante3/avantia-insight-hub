@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabaseGold, isGoldConfigured } from "@/lib/supabaseGold";
-import { isGerenteWhitelisted } from "@/lib/gerentes";
+import { EQUIPE_PUBLICO, EQUIPE_PRIVADO, matchNomeInList } from "@/lib/gerentes";
+import { normalizeName } from "@/lib/metasGerentes";
 import { filterCurvaValid, mesLabelCurto } from "@/lib/dateFilters";
 import { parseNegociosDetalhados } from "@/lib/parseJsonArray";
 
@@ -188,12 +189,7 @@ export interface PipelineAbertoGestorRow {
   valor_total_aberto: number;
 }
 
-const normalizeNome = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
+const normalizeNome = normalizeName;
 
 const textFromRow = (
   row: Record<string, unknown>,
@@ -285,36 +281,31 @@ export const useTopClientesGestor = (
         if (!gestorNome) return [];
         const { data, error } = await supabaseGold
           .from("mv_top_clientes_gestor")
-          .select("*")
-          .eq("gestor_nome", gestorNome);
+          .select("*");
         if (error) throw error;
         const currentYear = new Date().getFullYear();
-        // Em modo YTD, selectedMonth é COMPLETAMENTE ignorado.
-        const month = isYtdView
-          ? 12
-          : selectedMonthOrUndefined(selectedMonth) ?? new Date().getMonth() + 1;
+        const month = selectedMonthOrUndefined(selectedMonth) ?? new Date().getMonth() + 1;
+        const gestorNorm = normalizeName(gestorNome);
         const rows = ((data ?? []) as Record<string, unknown>[]).filter((r) => {
-          if (r.gestor_nome !== gestorNome) return false;
-          // YTD view: aceita linhas sem 'ano' (views já agregadas) ou do ano corrente.
-          if (isYtdView) {
-            if (r.ano == null || r.ano === "") return true;
-            return Number(r.ano) === currentYear;
-          }
+          if (normalizeName(String(r.gestor_nome ?? "")) !== gestorNorm) return false;
+          if (r.ano == null || r.ano === "") return isYtdView;
           return Number(r.ano) === currentYear;
         });
         const agg = new Map<string, TopClienteGestor>();
         for (const r of rows) {
-          const rowMonth = Number(r.mes ?? 0);
+          const rowMes = Number(r.mes ?? 0);
+          const isTargetMonth = isYtdView ? true : rowMes === month;
+          if (!isTargetMonth) continue;
 
           const empresaNome = textFromRow(r, [
-              "empresa_nome",
-              "cliente_nome",
-              "conta_nome",
-              "nome_empresa",
-              "empresa",
-              "cliente",
-              "razao_social",
-              "razao_social_empresa",
+            "empresa_nome",
+            "cliente_nome",
+            "conta_nome",
+            "nome_empresa",
+            "empresa",
+            "cliente",
+            "razao_social",
+            "razao_social_empresa",
           ]);
           const cur = agg.get(empresaNome) ?? {
             gestor_nome: String(r?.gestor_nome ?? gestorNome),
@@ -323,12 +314,11 @@ export const useTopClientesGestor = (
             valor_mtd: 0,
           };
           const valor = Number(r?.valor ?? r?.valor_ganho ?? r?.valor_total ?? 0);
-          // Em modo YTD-View, IGNORA selectedMonth: soma todos os meses do ano.
           if (isYtdView) {
             cur.valor_ytd += valor;
           } else {
-            if (rowMonth <= month) cur.valor_ytd += valor;
-            if (rowMonth === month) cur.valor_mtd += valor;
+            cur.valor_mtd += valor;
+            if (rowMes <= month) cur.valor_ytd += valor;
           }
           agg.set(empresaNome, cur);
         }
@@ -398,19 +388,45 @@ export interface CurvaGlobalPonto {
   [gestorNome: string]: string | number;
 }
 
-export const useCurvaEvolucaoGlobal = () =>
+export type EquipeFiltro = "global" | "publico" | "privado";
+
+const canonicalGestorLabel = (gestorNome: string, equipeList: string[] | null): string => {
+  if (!equipeList?.length) return gestorNome;
+  const match = equipeList.find((m) => matchNomeInList(gestorNome, [m]));
+  return match ?? gestorNome;
+};
+
+const gestorNaEquipe = (
+  gestorNome: string,
+  equipeFiltro: EquipeFiltro
+): boolean => {
+  if (equipeFiltro === "global") return true;
+  const equipeList = equipeFiltro === "publico" ? EQUIPE_PUBLICO : EQUIPE_PRIVADO;
+  return equipeList.some(
+    (membro) => normalizeName(gestorNome) === normalizeName(membro) || matchNomeInList(gestorNome, [membro])
+  );
+};
+
+export const useCurvaEvolucaoGlobal = (equipeFiltro: EquipeFiltro = "global") =>
   useQuery({
-    queryKey: ["gold", "mv_curva_evolucao_global_oport_geradas"],
+    queryKey: ["gold", "mv_curva_evolucao_global_oport_geradas", equipeFiltro],
     queryFn: async (): Promise<CurvaGlobalPonto[]> =>
       guard(async () => {
         const { data, error } = await supabaseGold
           .from("mv_oportunidades_geradas_mes")
           .select("ano, mes, qtd_geradas, qtd_oportunidades, gestor_nome");
         if (error) throw error;
+        const equipeList =
+          equipeFiltro === "publico"
+            ? EQUIPE_PUBLICO
+            : equipeFiltro === "privado"
+              ? EQUIPE_PRIVADO
+              : null;
         const map = new Map<string, CurvaGlobalPonto>();
         for (const r of (data ?? []) as Record<string, unknown>[]) {
           const gestorNome = String(r.gestor_nome ?? "").trim();
-          if (!gestorNome) continue;
+          if (!gestorNome || !gestorNaEquipe(gestorNome, equipeFiltro)) continue;
+          const labelKey = canonicalGestorLabel(gestorNome, equipeList);
           const ano = Number(r.ano ?? 0);
           const mes = Number(r.mes ?? 0);
           if (!ano || !mes) continue;
@@ -423,7 +439,7 @@ export const useCurvaEvolucaoGlobal = () =>
           };
           const qtd = Number(r.qtd_geradas ?? r.qtd_oportunidades ?? 0);
           cur.qtd_oportunidades += qtd;
-          cur[gestorNome] = Number(cur[gestorNome] ?? 0) + qtd;
+          cur[labelKey] = Number(cur[labelKey] ?? 0) + qtd;
           map.set(key, cur);
         }
         return filterCurvaValid(

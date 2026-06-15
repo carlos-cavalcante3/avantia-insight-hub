@@ -27,6 +27,7 @@ import {
 } from "@/hooks/useGerentesData";
 import { useVendasGestorPeriodo } from "@/hooks/useVendasData";
 import { isGerenteWhitelisted, EQUIPE_PUBLICO, EQUIPE_PRIVADO, matchNomeInList } from "@/lib/gerentes";
+import { getMetaGerente } from "@/lib/metasGerentes";
 import { getManagerColor } from "@/lib/managerColors";
 import { filterCurvaValid } from "@/lib/dateFilters";
 import {
@@ -43,7 +44,6 @@ import {
 
 const ORANGE = "hsl(var(--primary))";
 const BLUE = "hsl(var(--secondary))";
-const META_INDIVIDUAL_GERENTE = 5_000_000;
 
 interface RankItem {
   responsavel: string;
@@ -206,7 +206,9 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
   const vendasGestor = useVendasGestorPeriodo("avantia", selectedMonth);
   const movs = useRankingMovimentacoesDeals(200);
   const visitas = useRankingVisitas(200);
-  const curvaGlobal = useCurvaEvolucaoGlobal();
+  const [equipeFiltro, setEquipeFiltro] = useState<"global" | "publico" | "privado">("global");
+  const [hiddenManagers, setHiddenManagers] = useState<Set<string>>(() => new Set());
+  const curvaGlobal = useCurvaEvolucaoGlobal(equipeFiltro);
   const pipelineAberto = usePipelineAbertoTodosGestores();
   const previsao = usePrevisaoVendasMensal(selectedMonth);
   const pipelineMap = useMemo(() => {
@@ -226,8 +228,6 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
     const norm = nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
     return previsao.data?.get(norm) ?? 0;
   };
-  const [equipeFiltro, setEquipeFiltro] = useState<"global" | "publico" | "privado">("global");
-  const [hiddenManagers, setHiddenManagers] = useState<Set<string>>(() => new Set());
 
   if (perf.error) return <ErrorState message={(perf.error as Error).message} />;
 
@@ -316,11 +316,11 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
     const names = new Set<string>();
     for (const row of curvaData) {
       Object.keys(row).forEach((key) => {
-        if (!reserved.has(key) && passaEquipe(key)) names.add(key);
+        if (!reserved.has(key)) names.add(key);
       });
     }
     return Array.from(names);
-  }, [curvaData, equipeFiltro]);
+  }, [curvaData]);
 
   const toggleManagerLine = (value: unknown) => {
     const manager = String(value ?? "");
@@ -542,7 +542,10 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
           </p>
         ) : (
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {sortedByVolume.map((g) => (
+            {sortedByVolume.map((g) => {
+              const metaGerente = getMetaGerente(g.gestor_nome);
+              const metaPct = Math.min((g.valor_total_ganho_ytd / metaGerente) * 100, 100);
+              return (
               <li
                 key={g.gestor_nome}
                 className="rounded-md border border-border/60 bg-card/70 px-3 py-2"
@@ -593,23 +596,22 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
                   </span>
                   <span className="col-span-2 mt-1">
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                      <span>Meta YTD: {formatBRL(META_INDIVIDUAL_GERENTE)}</span>
+                      <span>Meta YTD: {formatBRL(metaGerente)}</span>
                       <span className="font-semibold text-foreground">
-                        {formatPercent(Math.min((g.valor_total_ganho_ytd / META_INDIVIDUAL_GERENTE) * 100, 100))}
+                        {formatPercent(metaPct)}
                       </span>
                     </div>
                     <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-800 border border-slate-700/50">
                       <div
                         className="h-full bg-gradient-to-r from-blue-600 to-orange-500 transition-all duration-700"
-                        style={{
-                          width: `${Math.min((g.valor_total_ganho_ytd / META_INDIVIDUAL_GERENTE) * 100, 100)}%`,
-                        }}
+                        style={{ width: `${metaPct}%` }}
                       />
                     </div>
                   </span>
                 </div>
               </li>
-            ))}
+            );
+            })}
           </ul>
         )}
       </ReportCard>
