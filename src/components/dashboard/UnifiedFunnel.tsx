@@ -16,14 +16,14 @@ import {
 } from "@/lib/funnelNegocios";
 
 export const ETAPAS_FUNIL = [
-  { nome: "Qualificação", cor: "#3b82f6", peso: 0.15 },
-  { nome: "Validação", cor: "#2563eb", peso: 0.25 },
-  { nome: "Pré-Vendas", cor: "#ea580c", peso: 0.35 },
-  { nome: "Proposta", cor: "#0891b2", peso: 0.5 },
-  { nome: "Análise", cor: "#4f46e5", peso: 0.6 },
-  { nome: "On-Hold", cor: "#059669", peso: 0.2 },
-  { nome: "Negociação", cor: "#06b6d4", peso: 0.8 },
-  { nome: "Pedido", cor: "#F1842A", peso: 0.95 },
+  { nome: "Qualificação", cor: "#3b82f6", peso: 0 },
+  { nome: "Validação", cor: "#2563eb", peso: 0 },
+  { nome: "Pré-Vendas", cor: "#ea580c", peso: 0.05 },
+  { nome: "Proposta", cor: "#0891b2", peso: 0.10 },
+  { nome: "Análise", cor: "#4f46e5", peso: 0.20 },
+  { nome: "On-Hold", cor: "#059669", peso: 0.10 },
+  { nome: "Negociação", cor: "#06b6d4", peso: 0.33 },
+  { nome: "Pedido", cor: "#F1842A", peso: 0.90 },
 ] as const;
 
 const normalize = (v: string) =>

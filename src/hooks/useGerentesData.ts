@@ -290,9 +290,15 @@ export const useTopClientesGestor = (
         if (error) throw error;
         const currentYear = new Date().getFullYear();
         const month = selectedMonthOrUndefined(selectedMonth) ?? new Date().getMonth() + 1;
-        const rows = ((data ?? []) as Record<string, unknown>[]).filter(
-          (r) => r.gestor_nome === gestorNome && Number(r.ano) === currentYear
-        );
+        const rows = ((data ?? []) as Record<string, unknown>[]).filter((r) => {
+          if (r.gestor_nome !== gestorNome) return false;
+          // YTD view: aceita linhas sem 'ano' (views já agregadas) ou do ano corrente.
+          if (isYtdView) {
+            if (r.ano == null || r.ano === "") return true;
+            return Number(r.ano) === currentYear;
+          }
+          return Number(r.ano) === currentYear;
+        });
         const agg = new Map<string, TopClienteGestor>();
         for (const r of rows) {
           const rowMonth = Number(r.mes ?? 0);
@@ -314,9 +320,13 @@ export const useTopClientesGestor = (
             valor_mtd: 0,
           };
           const valor = Number(r?.valor ?? r?.valor_ganho ?? r?.valor_total ?? 0);
-          // Em modo YTD-View, acumulamos o ano todo (ignora selectedMonth).
-          if (isYtdView || rowMonth <= month) cur.valor_ytd += valor;
-          if (!isYtdView && rowMonth === month) cur.valor_mtd += valor;
+          // Em modo YTD-View, IGNORA selectedMonth: soma o ano inteiro.
+          if (isYtdView) {
+            cur.valor_ytd += valor;
+          } else {
+            if (rowMonth <= month) cur.valor_ytd += valor;
+            if (rowMonth === month) cur.valor_mtd += valor;
+          }
           agg.set(empresaNome, cur);
         }
         return Array.from(agg.values()).sort((a, b) => b.valor_ytd - a.valor_ytd);
@@ -396,12 +406,12 @@ export const useCurvaEvolucaoGlobal = () =>
         if (error) throw error;
         const map = new Map<string, CurvaGlobalPonto>();
         for (const r of (data ?? []) as Record<string, unknown>[]) {
-          if (!isGerenteWhitelisted(String(r.gestor_nome ?? ""))) continue;
+          const gestorNome = String(r.gestor_nome ?? "").trim();
+          if (!gestorNome) continue;
           const ano = Number(r.ano ?? 0);
           const mes = Number(r.mes ?? 0);
           if (!ano || !mes) continue;
           const key = `${ano}-${String(mes).padStart(2, "0")}`;
-          const gestorNome = String(r.gestor_nome ?? "Nao atribuido").trim() || "Nao atribuido";
           const cur = map.get(key) ?? {
             ano,
             mes,
