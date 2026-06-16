@@ -420,12 +420,16 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
       {/* Bloco 2 — Curva de Oportunidades GERADAS GLOBAL */}
       <ReportCard
         title="Curva de Geração de Oportunidades (Global)"
-        subtitle="Linhas por gerente para comparar oportunidades geradas ao longo do tempo"
+        subtitle="Oportunidades geradas por gerente ao longo do tempo · clique na legenda para alternar linhas"
       >
-        <div className="h-[360px] w-full">
+        <div className="h-[380px] w-full">
           {curvaGlobal.isLoading ? (
             <Skeleton className="h-full w-full" />
-          ) : curvaData.length === 0 ? (
+          ) : curvaGlobal.error ? (
+            <div className="h-full flex items-center justify-center text-sm text-red-400">
+              Erro ao carregar dados: {(curvaGlobal.error as Error).message}
+            </div>
+          ) : curvaData.length === 0 || curvaManagers.length === 0 ? (
             <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
               Sem histórico para os gerentes.
             </div>
@@ -443,7 +447,7 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
                 <XAxis
                   dataKey="label"
                   tick={{ fontSize: 11, fill: "#94a3b8" }}
-                  interval="preserveStartEnd"
+                  interval={0}
                 />
                 <YAxis
                   tick={{ fontSize: 11, fill: "#94a3b8" }}
@@ -458,12 +462,18 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
                     color: "hsl(var(--popover-foreground))",
                     fontSize: 12,
                   }}
+                  itemSorter={(item) => -Number(item.value ?? 0)}
                 />
                 <Legend
                   wrapperStyle={{ fontSize: 12, cursor: "pointer", color: "#e2e8f0" }}
-                  formatter={(value) => (
-                    <span style={{ color: "#e2e8f0" }}>{value}</span>
-                  )}
+                  formatter={(value) => {
+                    const hidden = hiddenManagers.has(String(value));
+                    return (
+                      <span style={{ color: hidden ? "#64748b" : "#e2e8f0", textDecoration: hidden ? "line-through" : "none" }}>
+                        {value}
+                      </span>
+                    );
+                  }}
                   onClick={(payload) => toggleManagerLine(payload?.dataKey ?? payload?.value)}
                 />
                 {curvaManagers.map((manager) => (
