@@ -409,27 +409,42 @@ const gestorNaEquipe = (
 
 export const useCurvaEvolucaoGlobal = (equipeFiltro: EquipeFiltro = "global") =>
   useQuery({
-    queryKey: ["gold", "mv_curva_evolucao_global_oport_geradas", equipeFiltro],
+    queryKey: ["gold", "mv_oportunidades_geradas_mes_global_curve", equipeFiltro],
     queryFn: async (): Promise<CurvaGlobalPonto[]> =>
       guard(async () => {
+        // Fetch all rows with `*` (mirrors useOportunidadesGeradasMes that already works
+        // in AnaliseGerentesTab). Using `*` avoids 400 errors when the view does not
+        // expose a specific column name (e.g. qtd_geradas vs qtd_oportunidades).
         const { data, error } = await supabaseGold
           .from("mv_oportunidades_geradas_mes")
-          .select("ano, mes, qtd_geradas, qtd_oportunidades, gestor_nome");
+          .select("*");
         if (error) throw error;
+
         const equipeList =
           equipeFiltro === "publico"
             ? EQUIPE_PUBLICO
             : equipeFiltro === "privado"
               ? EQUIPE_PRIVADO
               : null;
+
         const map = new Map<string, CurvaGlobalPonto>();
         for (const r of (data ?? []) as Record<string, unknown>[]) {
-          const gestorNome = String(r.gestor_nome ?? "").trim();
-          if (!gestorNome || !gestorNaEquipe(gestorNome, equipeFiltro)) continue;
-          const labelKey = canonicalGestorLabel(gestorNome, equipeList);
-          const ano = Number(r.ano ?? 0);
-          const mes = Number(r.mes ?? 0);
+          const gestorNome = String(
+            r.gestor_nome ?? r.gestor ?? r.responsavel ?? r.nome ?? ""
+          ).trim();
+          if (!gestorNome) continue;
+          if (!gestorNaEquipe(gestorNome, equipeFiltro)) continue;
+
+          const ano = Number(r.ano ?? r.year ?? 0);
+          const mes = Number(r.mes ?? r.month ?? r.mes_numero ?? 0);
           if (!ano || !mes) continue;
+
+          const qtd = Number(
+            r.qtd_geradas ?? r.qtd_oportunidades ?? r.qtd ?? r.total ?? 0
+          );
+          if (!Number.isFinite(qtd)) continue;
+
+          const labelKey = canonicalGestorLabel(gestorNome, equipeList);
           const key = `${ano}-${String(mes).padStart(2, "0")}`;
           const cur = map.get(key) ?? {
             ano,
@@ -437,11 +452,11 @@ export const useCurvaEvolucaoGlobal = (equipeFiltro: EquipeFiltro = "global") =>
             label: mesLabelCurto(ano, mes),
             qtd_oportunidades: 0,
           };
-          const qtd = Number(r.qtd_geradas ?? r.qtd_oportunidades ?? 0);
           cur.qtd_oportunidades += qtd;
           cur[labelKey] = Number(cur[labelKey] ?? 0) + qtd;
           map.set(key, cur);
         }
+
         return filterCurvaValid(
           Array.from(map.values()).sort((a, b) =>
             a.ano !== b.ano ? a.ano - b.ano : a.mes - b.mes
