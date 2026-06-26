@@ -6,11 +6,12 @@ import { formatBRL, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { PropostaEstagnada } from "@/data/mockData";
 
-const severity = (dias: number) => {
-  if (dias >= 40) return { label: "Crítico", classes: "bg-destructive/10 text-destructive border-destructive/30" };
-  if (dias >= 30) return { label: "Alto", classes: "bg-warning/10 text-warning border-warning/30" };
-  return { label: "Atenção", classes: "bg-primary/10 text-primary border-primary/30" };
-};
+import { movBadgeClassFromDias, movSemaforoLabelFromDias } from "@/lib/movimentacaoAlerts";
+
+const severity = (dias: number) => ({
+  label: movSemaforoLabelFromDias(dias),
+  classes: movBadgeClassFromDias(dias),
+});
 
 interface Props {
   data?: PropostaEstagnada[];

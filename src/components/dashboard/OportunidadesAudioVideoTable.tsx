@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ReportCard } from "./ReportCard";
 import { ErrorState } from "./ErrorState";
 import { formatBRL } from "@/lib/format";
+import { formatRelativeMovimentacao, movBadgeClass } from "@/lib/movimentacaoAlerts";
 import { usePipelineClientesUltimaMov } from "@/hooks/useDashboardData";
 
 const PAGE_SIZE = 10;
@@ -17,7 +18,7 @@ interface Row {
   nome: string;
   cliente: string;
   gerente: string;
-  etapa: string;
+  ultimaMovimentacao: string | null;
   valor: number;
 }
 
@@ -37,7 +38,7 @@ export const OportunidadesAudioVideoTable = () => {
           nome: String(rec.nome ?? "Oportunidade"),
           cliente: String(rec.cliente ?? empresa.empresa ?? "—"),
           gerente: String(rec.gerente ?? "—"),
-          etapa: String(rec.etapa_nome ?? rec.fase ?? "—"),
+          ultimaMovimentacao: empresa.ultima_movimentacao,
           valor: Number(rec.valor ?? 0),
         });
       }
@@ -78,7 +79,7 @@ export const OportunidadesAudioVideoTable = () => {
                 <tr className="border-b border-slate-800 text-left text-[11px] uppercase tracking-wider text-slate-400">
                   <th className="px-2 py-2 font-medium">Oportunidade / Cliente</th>
                   <th className="px-2 py-2 font-medium">Responsável</th>
-                  <th className="px-2 py-2 font-medium">Etapa</th>
+                  <th className="px-2 py-2 font-medium">Últ. Mov.</th>
                   <th className="px-2 py-2 font-medium text-right">Valor</th>
                 </tr>
               </thead>
@@ -104,7 +105,15 @@ export const OportunidadesAudioVideoTable = () => {
                       <p className="text-xs text-slate-400 mt-0.5">{r.cliente}</p>
                     </td>
                     <td className="px-2 py-2.5 text-slate-200">{r.gerente}</td>
-                    <td className="px-2 py-2.5 text-slate-300">{r.etapa}</td>
+                    <td className="px-2 py-2.5">
+                      <span
+                        className={`inline-flex items-center justify-center px-2 py-0.5 rounded-md border text-[11px] font-semibold whitespace-nowrap ${movBadgeClass(
+                          r.ultimaMovimentacao
+                        )}`}
+                      >
+                        {formatRelativeMovimentacao(r.ultimaMovimentacao)}
+                      </span>
+                    </td>
                     <td className="px-2 py-2.5 text-right font-semibold text-slate-100 tabular-nums whitespace-nowrap">
                       {formatBRL(r.valor)}
                     </td>

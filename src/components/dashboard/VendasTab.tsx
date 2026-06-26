@@ -28,6 +28,7 @@ import {
   METAS_MENSAIS,
   METAS_MENSAIS_POR_MES,
   type VendaDetalhe,
+  type ComposicaoMesPoint,
 } from "@/hooks/useVendasData";
 import {
   DollarSign,
@@ -46,6 +47,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PonderadoTooltipContent } from "./PonderadoTooltipContent";
 import { kpiTileClass } from "@/lib/avantiaTheme";
+import { SECTOR_PUBLICO_COLOR, SECTOR_PRIVADO_COLOR } from "@/lib/sectorColors";
+import { DealListTooltipContent } from "./DealListTooltipContent";
+import { CountMetricTooltip } from "./CountMetricTooltip";
 
 interface VendasTabProps {
   sector: Sector;
@@ -423,6 +427,50 @@ interface ValuePoint {
   detalhes?: VendaDetalhe[];
 }
 
+const ClienteBarTooltip = ({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: ValuePoint }>;
+}) => {
+  if (!active || !payload?.length) return null;
+  const point = payload[0]?.payload;
+  if (!point) return null;
+  return (
+    <DealListTooltipContent
+      title={point.label}
+      total={point.valor}
+      items={point.detalhes ?? []}
+      showNegocio
+    />
+  );
+};
+
+const ComposicaoMesTooltip = ({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: ComposicaoMesPoint & { receita_total?: number } }>;
+  label?: string;
+}) => {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  if (!row) return null;
+  const total = Number(row.receita_total ?? row.unica + row.recorrente);
+  return (
+    <DealListTooltipContent
+      title={String(label ?? row.label)}
+      total={total}
+      items={row.detalhes ?? []}
+      showCliente
+      showNegocio
+    />
+  );
+};
+
 const DetailsPanel = ({ point }: { point: ValuePoint }) => {
   const detalhes = (point.detalhes?.filter((d) => Number(d.valor) > 0) ?? [])
     .slice()
@@ -637,7 +685,7 @@ const ValueBarChart = ({
           />
           <Bar
             dataKey="valor"
-            fill={barNeon ? "#f97316" : "#3b82f6"}
+            fill={barNeon ? SECTOR_PUBLICO_COLOR : SECTOR_PRIVADO_COLOR}
             radius={[0, 6, 6, 0]}
             barSize={18}
             className={barNeon ? "drop-shadow-[0_0_8px_rgba(249,115,22,0.8)]" : undefined}
@@ -650,6 +698,12 @@ const ValueBarChart = ({
               formatter={(v: number) => formatBRL(Number(v))}
             />
           </Bar>
+          {!detailsViaIcon && data.some((d) => (d.detalhes?.length ?? 0) > 0) && (
+            <RTooltip
+              cursor={{ fill: "hsl(var(--muted) / 0.2)" }}
+              content={<ClienteBarTooltip />}
+            />
+          )}
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -830,11 +884,13 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
     clientes.data?.ytd.map((c) => ({
       label: c.empresa_nome,
       valor: c.valor_ytd,
+      detalhes: c.detalhes_ytd,
     })) ?? [];
   const clientesMtdData: ValuePoint[] =
     clientes.data?.mtd.map((c) => ({
       label: c.empresa_nome,
       valor: c.valor_mtd,
+      detalhes: c.detalhes_mtd,
     })) ?? [];
   const gestoresYtdData: ValuePoint[] =
     gestores.data?.ytd.map((g) => ({
@@ -881,6 +937,23 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
     ...d,
     receita_total: d.unica + d.recorrente,
   }));
+
+  const negociosDetalhesYtd = useMemo(
+    () =>
+      (gestores.data?.ytd ?? []).flatMap((g) => g.detalhes_vendas_ytd ?? []),
+    [gestores.data]
+  );
+  const negociosDetalhesMtd = useMemo(
+    () =>
+      (gestores.data?.mtd ?? []).flatMap((g) => g.detalhes_vendas_mtd ?? []),
+    [gestores.data]
+  );
+  const negociosCountLines = (items: VendaDetalhe[]) =>
+    items.map((d) => ({
+      label: d.nome || d.cliente,
+      sublabel: d.gerente,
+      valor: d.valor,
+    }));
 
   // Composição por SETOR: combina os 3 setores num único array (Público / Privado / Áudio e Vídeo).
   const composicaoSetorData = useMemo(() => {
@@ -1000,7 +1073,15 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
               <Skeleton className="h-7 w-24 mt-2" />
             ) : (
               <>
-                <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">{ytdQtd.value}</p>
+                <CountMetricTooltip
+                  count={kpis.data?.qtd_ytd ?? 0}
+                  unitLabel="negócios"
+                  lines={negociosCountLines(negociosDetalhesYtd)}
+                >
+                  <p className="mt-1 text-xl lg:text-2xl font-bold text-foreground tabular-nums tracking-tight">
+                    {ytdQtd.value}
+                  </p>
+                </CountMetricTooltip>
                 {!refs2025.isLoading && renderCompare2025(kpis.data?.qtd_ytd ?? 0, refs2025.data?.qtdYtd2025, "number")}
               </>
             )}
@@ -1059,13 +1140,7 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
               />
               <RTooltip
                 cursor={{ fill: "hsl(var(--muted) / 0.2)" }}
-                contentStyle={{
-                  background: "hsl(var(--popover))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-                formatter={(value: number, name: string) => [formatBRL(Number(value)), name]}
+                content={<ComposicaoMesTooltip />}
               />
               <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="unica" name="Valor Único" stackId="a" fill="#3b82f6" radius={[0, 0, 4, 4]} maxBarSize={40} />
@@ -1112,8 +1187,8 @@ export const VendasTab = ({ sector, periodo }: VendasTabProps) => {
                 formatter={(value: number, name: string) => [formatBRL(Number(value)), name]}
               />
               <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="publico" name="Público" stackId="setor" fill="#3b82f6" maxBarSize={40} />
-              <Bar dataKey="privado" name="Privado" stackId="setor" fill="#f97316" maxBarSize={40} />
+              <Bar dataKey="publico" name="Público" stackId="setor" fill={SECTOR_PUBLICO_COLOR} maxBarSize={40} />
+              <Bar dataKey="privado" name="Privado" stackId="setor" fill={SECTOR_PRIVADO_COLOR} maxBarSize={40} />
               <Bar dataKey="audio_video" name="Áudio e Vídeo" stackId="setor" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
             </BarChart>
           </ResponsiveContainer>

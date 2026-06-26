@@ -243,6 +243,28 @@ const applySelectedMonthToKpis = (
   };
 };
 
+/* --------------- Detalhes de vendas (reutilizado em composição / gestor / clientes) --------------- */
+
+export interface VendaDetalhe {
+  nome: string;
+  cliente: string;
+  gerente: string;
+  valor: number;
+}
+
+const asArray = (value: unknown): Record<string, unknown>[] => parseNegociosDetalhados(value);
+
+const detalheVendaFromRow = (
+  row: Record<string, unknown>,
+  fallbackGerente: string,
+  fallbackValor: number
+): VendaDetalhe => ({
+  nome: String(row.negocio_nome ?? row.nome_negocio ?? row.negocio ?? row.titulo ?? row.cliente_nome ?? "Negocio"),
+  cliente: String(row.cliente_nome ?? row.empresa_nome ?? row.cliente ?? row.empresa ?? "Cliente nao informado"),
+  gerente: String(row.gestor_nome ?? row.gerente_nome ?? row.gerente ?? fallbackGerente),
+  valor: Number(row.valor ?? row.valor_ganho ?? row.valor_total ?? fallbackValor ?? 0),
+});
+
 /* --------------- Composição mensal (única + recorrente) --------------- */
 
 const MONTH_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
@@ -251,17 +273,23 @@ export interface ComposicaoMesPoint {
   label: string;
   unica: number;
   recorrente: number;
+  detalhes?: VendaDetalhe[];
 }
 
 export const useVendasComposicaoMesAMes = (sector: Sector = "avantia", selectedMonth?: number) =>
   useQuery({
-    queryKey: ["gold", "vendas_composicao_mes_v1", sector, selectedMonthOrCurrent(selectedMonth)],
+    queryKey: ["gold", "vendas_composicao_mes_v2", sector, selectedMonthOrCurrent(selectedMonth)],
     queryFn: async (): Promise<ComposicaoMesPoint[]> =>
       guard(async () => {
-        const { data, error } = await supabaseGold.from("mv_vendas_mensais_yoy").select("*");
-        if (error) throw error;
-        const year = new Date().getFullYear();
         const month = selectedMonthOrCurrent(selectedMonth);
+        const year = new Date().getFullYear();
+        const [{ data, error }, { data: vendasData, error: vendasError }] = await Promise.all([
+          supabaseGold.from("mv_vendas_mensais_yoy").select("*"),
+          supabaseGold.from("mv_vendas_gestor_periodo").select("*"),
+        ]);
+        if (error) throw error;
+        if (vendasError) throw vendasError;
+
         const rows = ((data ?? []) as Record<string, unknown>[]).filter(
           (r) =>
             Number(r.ano) === year &&
@@ -271,7 +299,7 @@ export const useVendasComposicaoMesAMes = (sector: Sector = "avantia", selectedM
         );
         const agg = new Map<number, ComposicaoMesPoint>();
         for (let m = 1; m <= month; m++) {
-          agg.set(m, { label: MONTH_SHORT[m - 1], unica: 0, recorrente: 0 });
+          agg.set(m, { label: MONTH_SHORT[m - 1], unica: 0, recorrente: 0, detalhes: [] });
         }
         for (const r of rows) {
           const m = Number(r.mes);
@@ -280,6 +308,27 @@ export const useVendasComposicaoMesAMes = (sector: Sector = "avantia", selectedM
           cur.unica += Number(r.receita_unica ?? 0);
           cur.recorrente += Number(r.receita_recorrente ?? 0);
         }
+
+        for (const r of (vendasData ?? []) as Record<string, unknown>[]) {
+          if (Number(r.ano ?? year) !== year) continue;
+          const rowMonth = Number(r.mes ?? 0);
+          if (rowMonth < 1 || rowMonth > month) continue;
+          if (!matchSector(String(r.pipeline_nome ?? ""), sector)) continue;
+          const cur = agg.get(rowMonth);
+          if (!cur) continue;
+          const gestor = String(r.gestor_nome ?? "—");
+          const detalhes = parseNegociosDetalhados(
+            r.detalhes_vendas ?? r.detalhes_vendas_ytd ?? r.detalhes_vendas_mtd
+          );
+          const valor = Number(r.valor ?? r.valor_ganho ?? r.valor_total ?? 0);
+          const linhas = detalhes.length
+            ? detalhes.map((d) => detalheVendaFromRow(d, gestor, valor))
+            : valor > 0
+              ? [detalheVendaFromRow(r, gestor, valor)]
+              : [];
+          cur.detalhes?.push(...linhas);
+        }
+
         return Array.from(agg.entries())
           .sort((a, b) => a[0] - b[0])
           .map(([, v]) => v);
@@ -439,19 +488,24 @@ export interface ClientePeriodo {
   empresa_nome: string;
   valor_ytd: number;
   valor_mtd: number;
+  detalhes_ytd?: VendaDetalhe[];
+  detalhes_mtd?: VendaDetalhe[];
 }
 
 export const useTopClientesPeriodo = (sector: Sector = "avantia", limit = 15, selectedMonth?: number) =>
   useQuery({
-    queryKey: ["gold", "top_clientes_periodo_v2", sector, limit, selectedMonthOrCurrent(selectedMonth)],
+    queryKey: ["gold", "top_clientes_periodo_v3", sector, limit, selectedMonthOrCurrent(selectedMonth)],
     queryFn: async (): Promise<{ ytd: ClientePeriodo[]; mtd: ClientePeriodo[] }> =>
       guard(async () => {
-        const { data, error } = await supabaseGold
-          .from("mv_top_clientes_periodo")
-          .select("*");
-        if (error) throw error;
         const currentYear = new Date().getFullYear();
         const month = selectedMonthOrCurrent(selectedMonth);
+        const [{ data, error }, { data: vendasData, error: vendasError }] = await Promise.all([
+          supabaseGold.from("mv_top_clientes_periodo").select("*"),
+          supabaseGold.from("mv_vendas_gestor_periodo").select("*"),
+        ]);
+        if (error) throw error;
+        if (vendasError) throw vendasError;
+
         const filtered = ((data ?? []) as Record<string, unknown>[]).filter((r) =>
           Number(r.ano ?? currentYear) === currentYear &&
           matchSector(String(r.pipeline_nome ?? ""), sector)
@@ -463,12 +517,49 @@ export const useTopClientesPeriodo = (sector: Sector = "avantia", limit = 15, se
           const key = String(
             r.empresa_nome ?? r.cliente_nome ?? r.conta_nome ?? r.cliente ?? "—"
           ).trim() || "—";
-          const cur = agg.get(key) ?? { empresa_nome: key, valor_ytd: 0, valor_mtd: 0 };
+          const cur = agg.get(key) ?? {
+            empresa_nome: key,
+            valor_ytd: 0,
+            valor_mtd: 0,
+            detalhes_ytd: [],
+            detalhes_mtd: [],
+          };
           const valor = Number(r.valor ?? r.valor_ganho ?? r.valor_total ?? 0);
           cur.valor_ytd += valor;
           if (rowMonth === month) cur.valor_mtd += valor;
           agg.set(key, cur);
         }
+
+        for (const r of (vendasData ?? []) as Record<string, unknown>[]) {
+          if (Number(r.ano ?? currentYear) !== currentYear) continue;
+          if (!matchSector(String(r.pipeline_nome ?? ""), sector)) continue;
+          const rowMonth = Number(r.mes ?? 0);
+          if (rowMonth < 1 || rowMonth > month) continue;
+          const gestor = String(r.gestor_nome ?? "—");
+          const detalhes = asArray(
+            r.detalhes_vendas ?? r.detalhes_vendas_ytd ?? r.detalhes_vendas_mtd
+          );
+          const valor = Number(r.valor ?? r.valor_ganho ?? r.valor_total ?? 0);
+          const linhas = detalhes.length
+            ? detalhes.map((d) => detalheVendaFromRow(d, gestor, valor))
+            : valor > 0
+              ? [detalheVendaFromRow(r, gestor, valor)]
+              : [];
+          for (const linha of linhas) {
+            const key = linha.cliente.trim() || "—";
+            const cur = agg.get(key) ?? {
+              empresa_nome: key,
+              valor_ytd: 0,
+              valor_mtd: 0,
+              detalhes_ytd: [],
+              detalhes_mtd: [],
+            };
+            if (rowMonth <= month) cur.detalhes_ytd?.push(linha);
+            if (rowMonth === month) cur.detalhes_mtd?.push(linha);
+            agg.set(key, cur);
+          }
+        }
+
         const all = Array.from(agg.values());
         return {
           ytd: [...all].filter((r) => r.valor_ytd > 0).sort((a, b) => b.valor_ytd - a.valor_ytd).slice(0, limit),
@@ -489,26 +580,6 @@ export interface GestorPeriodo {
   detalhes_vendas_ytd?: VendaDetalhe[];
   detalhes_vendas_mtd?: VendaDetalhe[];
 }
-
-export interface VendaDetalhe {
-  nome: string;
-  cliente: string;
-  gerente: string;
-  valor: number;
-}
-
-const asArray = (value: unknown): Record<string, unknown>[] => parseNegociosDetalhados(value);
-
-const detalheVendaFromRow = (
-  row: Record<string, unknown>,
-  fallbackGerente: string,
-  fallbackValor: number
-): VendaDetalhe => ({
-  nome: String(row.negocio_nome ?? row.nome_negocio ?? row.negocio ?? row.titulo ?? row.cliente_nome ?? "Negocio"),
-  cliente: String(row.cliente_nome ?? row.empresa_nome ?? row.cliente ?? row.empresa ?? "Cliente nao informado"),
-  gerente: String(row.gestor_nome ?? row.gerente_nome ?? row.gerente ?? fallbackGerente),
-  valor: Number(row.valor ?? row.valor_ganho ?? row.valor_total ?? fallbackValor ?? 0),
-});
 
 export const useVendasGestorPeriodo = (sector: Sector = "avantia", selectedMonth?: number) =>
   useQuery({

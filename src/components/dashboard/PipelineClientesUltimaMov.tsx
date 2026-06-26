@@ -9,31 +9,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { formatBRL, formatNumber } from "@/lib/format";
 import type { UltimaMovEmpresa } from "@/hooks/useDashboardData";
 
+import {
+  formatRelativeMovimentacao,
+  movBadgeClass,
+} from "@/lib/movimentacaoAlerts";
+
 const PAGE_SIZE = 8;
-
-const diasDesde = (iso: string | null): number | null => {
-  if (!iso) return null;
-  const ms = Date.now() - new Date(iso).getTime();
-  return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
-};
-
-const formatRelative = (iso: string | null): string => {
-  const d = diasDesde(iso);
-  if (d === null) return "—";
-  if (d === 0) return "Hoje";
-  if (d === 1) return "Ontem";
-  if (d < 30) return `há ${d} dias`;
-  if (d < 60) return `há ${Math.floor(d / 7)} semanas`;
-  return `há ${Math.floor(d / 30)} meses`;
-};
-
-const movBadge = (iso: string | null): string => {
-  const d = diasDesde(iso) ?? 999;
-  if (d <= 15) return "text-emerald-400 bg-emerald-400/10 border border-emerald-400/20";
-  if (d <= 30) return "bg-primary/10 text-primary border-primary/20";
-  if (d <= 60) return "bg-warning/15 text-warning border-warning/30";
-  return "bg-destructive/15 text-destructive border-destructive/30";
-};
 
 const NegocioPopoverList = ({
   empresa,
@@ -195,11 +176,11 @@ export const PipelineClientesUltimaMov = ({
                       </td>
                       <td className="px-2 py-2.5 text-right">
                         <span
-                          className={`inline-flex items-center justify-center px-2 py-0.5 rounded-md border text-[11px] font-semibold whitespace-nowrap ${movBadge(
+                          className={`inline-flex items-center justify-center px-2 py-0.5 rounded-md border text-[11px] font-semibold whitespace-nowrap ${movBadgeClass(
                             row.ultima_movimentacao
                           )}`}
                         >
-                          {formatRelative(row.ultima_movimentacao)}
+                          {formatRelativeMovimentacao(row.ultima_movimentacao)}
                         </span>
                       </td>
                     </tr>

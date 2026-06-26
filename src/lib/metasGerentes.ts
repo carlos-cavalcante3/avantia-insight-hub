@@ -19,7 +19,8 @@ export const METAS_GERENTES: Record<string, number> = {
   "joao rabitto": 4_000_000,
   "eder cosmo": 5_000_000,
   "andre henrique dos santos": 5_000_000,
+  default: 8_000_000,
 };
 
 export const getMetaGerente = (nome: string | null | undefined): number =>
-  METAS_GERENTES[normalizeName(nome)] ?? METAS_GERENTES.DEFAULT;
+  METAS_GERENTES[normalizeName(nome)] ?? METAS_GERENTES.default;

@@ -1,6 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabaseGold, isGoldConfigured } from "@/lib/supabaseGold";
-import { EQUIPE_PUBLICO, EQUIPE_PRIVADO, matchNomeInList } from "@/lib/gerentes";
+import {
+  CURVA_GLOBAL_GERENTES,
+  EQUIPE_PUBLICO,
+  EQUIPE_PRIVADO,
+  matchNomeInList,
+} from "@/lib/gerentes";
 import { normalizeName } from "@/lib/metasGerentes";
 import { filterCurvaValid, mesLabelCurto } from "@/lib/dateFilters";
 import { parseNegociosDetalhados } from "@/lib/parseJsonArray";
@@ -271,7 +276,7 @@ export const useTopClientesGestor = (
   useQuery({
     queryKey: [
       "gold",
-      "mv_top_clientes_gestor",
+      "top_clientes_gestor_v2",
       gestorNome,
       isYtdView ? "ytd" : selectedMonthOrUndefined(selectedMonth) ?? new Date().getMonth() + 1,
     ],
@@ -279,24 +284,45 @@ export const useTopClientesGestor = (
     queryFn: async (): Promise<TopClienteGestor[]> =>
       guard(async () => {
         if (!gestorNome) return [];
-        const { data, error } = await supabaseGold
-          .from("mv_top_clientes_gestor")
-          .select("*");
-        if (error) throw error;
+        const gestorNorm = normalizeName(gestorNome);
         const currentYear = new Date().getFullYear();
         const month = selectedMonthOrUndefined(selectedMonth) ?? new Date().getMonth() + 1;
-        const gestorNorm = normalizeName(gestorNome);
-        const rows = ((data ?? []) as Record<string, unknown>[]).filter((r) => {
-          if (normalizeName(String(r.gestor_nome ?? "")) !== gestorNorm) return false;
-          if (r.ano == null || r.ano === "") return isYtdView;
-          return Number(r.ano) === currentYear;
-        });
-        const agg = new Map<string, TopClienteGestor>();
-        for (const r of rows) {
-          const rowMes = Number(r.mes ?? 0);
-          const isTargetMonth = isYtdView ? true : rowMes === month;
-          if (!isTargetMonth) continue;
 
+        if (isYtdView) {
+          const { data, error } = await supabaseGold
+            .from("mv_top_clientes_gestor")
+            .select("*");
+          if (error) throw error;
+          return ((data ?? []) as Record<string, unknown>[])
+            .filter((r) => normalizeName(String(r.gestor_nome ?? "")) === gestorNorm)
+            .map((r) => ({
+              gestor_nome: String(r.gestor_nome ?? gestorNome).trim() || gestorNome,
+              empresa_nome: textFromRow(r, [
+                "empresa_nome",
+                "cliente_nome",
+                "conta_nome",
+                "nome_empresa",
+                "empresa",
+                "cliente",
+                "razao_social",
+                "razao_social_empresa",
+              ]),
+              valor_ytd: Number(r.valor_ytd ?? r.valor ?? r.valor_ganho ?? r.valor_total ?? 0),
+              valor_mtd: 0,
+            }))
+            .filter((r) => r.valor_ytd > 0)
+            .sort((a, b) => b.valor_ytd - a.valor_ytd);
+        }
+
+        const { data, error } = await supabaseGold
+          .from("mv_top_clientes_periodo")
+          .select("*");
+        if (error) throw error;
+        const agg = new Map<string, TopClienteGestor>();
+        for (const r of (data ?? []) as Record<string, unknown>[]) {
+          if (normalizeName(String(r.gestor_nome ?? "")) !== gestorNorm) continue;
+          if (Number(r.ano ?? currentYear) !== currentYear) continue;
+          if (Number(r.mes ?? 0) !== month) continue;
           const empresaNome = textFromRow(r, [
             "empresa_nome",
             "cliente_nome",
@@ -308,21 +334,17 @@ export const useTopClientesGestor = (
             "razao_social_empresa",
           ]);
           const cur = agg.get(empresaNome) ?? {
-            gestor_nome: String(r?.gestor_nome ?? gestorNome),
+            gestor_nome: String(r.gestor_nome ?? gestorNome).trim() || gestorNome,
             empresa_nome: empresaNome,
             valor_ytd: 0,
             valor_mtd: 0,
           };
-          const valor = Number(r?.valor ?? r?.valor_ganho ?? r?.valor_total ?? 0);
-          if (isYtdView) {
-            cur.valor_ytd += valor;
-          } else {
-            cur.valor_mtd += valor;
-            if (rowMes <= month) cur.valor_ytd += valor;
-          }
+          cur.valor_mtd += Number(r.valor ?? r.valor_ganho ?? r.valor_total ?? 0);
           agg.set(empresaNome, cur);
         }
-        return Array.from(agg.values()).sort((a, b) => b.valor_ytd - a.valor_ytd);
+        return Array.from(agg.values())
+          .filter((r) => r.valor_mtd > 0)
+          .sort((a, b) => b.valor_mtd - a.valor_mtd);
       }),
     staleTime: 5 * 60 * 1000,
   });
@@ -400,11 +422,10 @@ const gestorNaEquipe = (
   gestorNome: string,
   equipeFiltro: EquipeFiltro
 ): boolean => {
+  if (!matchNomeInList(gestorNome, CURVA_GLOBAL_GERENTES)) return false;
   if (equipeFiltro === "global") return true;
   const equipeList = equipeFiltro === "publico" ? EQUIPE_PUBLICO : EQUIPE_PRIVADO;
-  return equipeList.some(
-    (membro) => normalizeName(gestorNome) === normalizeName(membro) || matchNomeInList(gestorNome, [membro])
-  );
+  return matchNomeInList(gestorNome, equipeList);
 };
 
 export const useCurvaEvolucaoGlobal = (equipeFiltro: EquipeFiltro = "global") =>

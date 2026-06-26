@@ -14,13 +14,7 @@ interface Props {
   maxRows?: number;
 }
 
-/** > 30 dias: vermelho · 16–30: laranja · ≤ 15: neutro */
-const diasBadge = (dias: number) => {
-  if (dias > 30) return "text-red-500 bg-red-500/20 border-red-500/30";
-  if (dias >= 16) return "text-orange-500 bg-orange-500/20 border-orange-500/30";
-  return "text-slate-300 bg-slate-800/60 border-slate-700/50";
-};
-
+import { movBadgeClassFromDias, movSemaforoLabelFromDias } from "@/lib/movimentacaoAlerts";
 export const EstagnadosTable = ({
   data,
   isLoading,
@@ -85,7 +79,7 @@ export const EstagnadosTable = ({
                     <span
                       className={cn(
                         "inline-flex items-center justify-center min-w-[2.75rem] px-2 py-0.5 rounded-md border text-xs font-bold tabular-nums",
-                        diasBadge(r.dias_parado)
+                        movBadgeClassFromDias(r.dias_parado)
                       )}
                     >
                       {r.dias_parado}d

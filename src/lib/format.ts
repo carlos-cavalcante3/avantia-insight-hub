@@ -15,7 +15,7 @@ const nf1 = new Intl.NumberFormat("en-US", {
 });
 
 const compactSuffix = (value: number, suffix: "K" | "M") =>
-  `${nf1.format(value).replace(/\.0$/, "")}${suffix}`;
+  `${nf1.format(value)}${suffix}`;
 
 /**
  * Máscara global "Avantia": sem cifrão.

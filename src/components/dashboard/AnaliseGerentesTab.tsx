@@ -53,19 +53,14 @@ import { useVendasGestorPeriodo } from "@/hooks/useVendasData";
 import { isGerenteWhitelisted, EQUIPE_PUBLICO, EQUIPE_PRIVADO, matchNomeInList } from "@/lib/gerentes";
 import { getMetaGerente, normalizeName } from "@/lib/metasGerentes";
 import { filterCurvaValid } from "@/lib/dateFilters";
+import { movAlertLevel, movTextClass } from "@/lib/movimentacaoAlerts";
+import { CountMetricTooltip } from "./CountMetricTooltip";
 
 interface AnaliseGerentesTabProps {
   periodo: string;
 }
 
 const normNome = normalizeName;
-
-const diasDesde = (iso: string | null): number | null => {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return Math.floor((Date.now() - d.getTime()) / 86_400_000);
-};
 
 const wrapAxisLabel = (value: string, maxLineLength = 14, maxLines = 2) => {
   const words = value.trim().split(/\s+/);
@@ -274,6 +269,23 @@ export const AnaliseGerentesTab = ({ periodo }: AnaliseGerentesTabProps) => {
     [oportunidadesMes.data]
   );
 
+  const negociosDetalhesGestor = useMemo(() => {
+    if (isTeam) {
+      return (vendasGestor.data?.ytd ?? [])
+        .filter((g) => isGerenteWhitelisted(g.gestor_nome))
+        .filter((g) => passaEquipe(g.gestor_nome))
+        .flatMap((g) => g.detalhes_vendas_ytd ?? []);
+    }
+    const gestor = (vendasGestor.data?.ytd ?? []).find((g) => g.gestor_nome === activeGestor);
+    return gestor?.detalhes_vendas_ytd ?? [];
+  }, [vendasGestor.data, isTeam, activeGestor, equipeList]);
+
+  const negociosCountLines = negociosDetalhesGestor.map((d) => ({
+    label: d.nome || d.cliente,
+    sublabel: d.gerente,
+    valor: d.valor,
+  }));
+
   return (
     <div className="space-y-4">
       {/* Seletor Visão da Equipe x Individual */}
@@ -332,7 +344,13 @@ export const AnaliseGerentesTab = ({ periodo }: AnaliseGerentesTabProps) => {
                   {formatBRL(vendasYtdValor)}
                 </p>
                 <p className="mt-1 text-[11px] text-slate-400">
-                  {`${formatNumber(qtdYtdValor)} negócios fechados`}
+                  <CountMetricTooltip
+                    count={qtdYtdValor}
+                    unitLabel="negócios fechados"
+                    lines={negociosCountLines}
+                  >
+                    {`${formatNumber(qtdYtdValor)} negócios fechados`}
+                  </CountMetricTooltip>
                 </p>
               </>
             )}
@@ -717,9 +735,8 @@ export const AnaliseGerentesTab = ({ periodo }: AnaliseGerentesTabProps) => {
                   .map((row, idx) => {
                     const valorPipe = Number(row?.valor_pipeline ?? 0);
                     const pipeOk = valorPipe > 0;
-                    const dias = diasDesde(row?.ultima_movimentacao ?? null);
-                    const movAlerta = dias != null && dias > 30;
                     const semVisita = !row?.ultima_visita;
+                    const alertLevel = movAlertLevel(row?.ultima_movimentacao);
                     return (
                       <TableRow key={`${row?.cliente_nome ?? "row"}-${idx}`}>
                         <TableCell className="font-medium">{row?.cliente_nome ?? "—"}</TableCell>
@@ -755,11 +772,13 @@ export const AnaliseGerentesTab = ({ periodo }: AnaliseGerentesTabProps) => {
                         <TableCell
                           className={cn(
                             "whitespace-nowrap",
-                            movAlerta && "text-red-400 font-bold"
+                            movTextClass(row?.ultima_movimentacao)
                           )}
                         >
                           <div className="inline-flex items-center gap-1.5">
-                            {movAlerta && <AlertTriangle className="h-3.5 w-3.5" />}
+                            {(alertLevel === "amarelo" || alertLevel === "vermelho") && (
+                              <AlertTriangle className="h-3.5 w-3.5" />
+                            )}
                             <span>
                               {row?.ultima_movimentacao
                                 ? formatDateBR(row.ultima_movimentacao)

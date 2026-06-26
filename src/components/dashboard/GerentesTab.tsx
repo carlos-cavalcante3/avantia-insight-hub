@@ -166,30 +166,12 @@ const RankBarChart = ({
  * Inactivity table (semáforo)
  * ========================================================== */
 
-const diasDesde = (iso: string | null | undefined): number | null => {
-  if (!iso) return null;
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return null;
-  return Math.max(0, Math.floor((Date.now() - t) / 86_400_000));
-};
-
-const semaforoNeonDot = (dias: number) => {
-  if (dias > 30) return "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]";
-  if (dias > 15) return "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.8)]";
-  return "bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]";
-};
-
-const semaforoTextClass = (dias: number) => {
-  if (dias > 30) return "text-red-500 bg-red-500/15";
-  if (dias > 15) return "text-amber-500 bg-amber-500/15";
-  return "text-emerald-500 bg-emerald-500/15";
-};
-
-const semaforoLabel = (dias: number) => {
-  if (dias > 30) return "Crítico";
-  if (dias > 15) return "Atenção";
-  return "Ativo";
-};
+import { SECTOR_PUBLICO_COLOR, SECTOR_PRIVADO_COLOR } from "@/lib/sectorColors";
+import {
+  movSemaforoDotFromDias,
+  movSemaforoLabelFromDias,
+  movSemaforoTextFromDias,
+} from "@/lib/movimentacaoAlerts";
 
 /* ============================================================
  * Page
@@ -280,8 +262,8 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
     return dataWL
       .map((g) => {
         const qtdMov = movMap.get(g.gestor_nome) ?? 0;
-        // proxy de inatividade: 0 movs → 60 dias; pouca → 30; muita → 5
-        const dias = qtdMov === 0 ? 60 : qtdMov < 5 ? 30 : qtdMov < 15 ? 15 : 5;
+        // proxy de inatividade: 0 movs → 61 dias; pouca → 30; muita → 5
+        const dias = qtdMov === 0 ? 61 : qtdMov < 5 ? 30 : qtdMov < 15 ? 15 : 5;
         return {
           gestor: g.gestor_nome,
           qtdMov,
@@ -516,7 +498,7 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span
-                    className={`h-3 w-3 shrink-0 rounded-full ${semaforoNeonDot(r.dias)}`}
+                    className={`h-3 w-3 shrink-0 rounded-full ${movSemaforoDotFromDias(r.dias)}`}
                     aria-hidden
                   />
                   <p className="text-sm font-semibold text-foreground truncate">{r.gestor}</p>
@@ -525,9 +507,9 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
                   {r.qtdMov} movimentações registradas
                 </p>
                 <span
-                  className={`self-start text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md ${semaforoTextClass(r.dias)}`}
+                  className={`self-start text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md ${movSemaforoTextFromDias(r.dias)}`}
                 >
-                  {semaforoLabel(r.dias)} · ~{r.dias}d
+                  {movSemaforoLabelFromDias(r.dias)} · ~{r.dias}d
                 </span>
               </li>
             ))}

@@ -49,6 +49,9 @@ export const EQUIPE_PRIVADO = [
   "Phillipe Maia",
 ];
 
+/** Gerentes exibidos na Curva de Geração de Oportunidades (Global). */
+export const CURVA_GLOBAL_GERENTES = [...EQUIPE_PUBLICO, ...EQUIPE_PRIVADO];
+
 /** Verifica se um nome bate com algum nome da lista — ignora acentos e
  *  maiúsculas, com includes bidirecional para tolerar variações (sobrenome
  *  parcial, abreviações etc.). */
