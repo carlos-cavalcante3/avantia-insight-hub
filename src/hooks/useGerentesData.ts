@@ -422,10 +422,29 @@ const gestorNaEquipe = (
   gestorNome: string,
   equipeFiltro: EquipeFiltro
 ): boolean => {
-  if (!matchNomeInList(gestorNome, CURVA_GLOBAL_GERENTES)) return false;
+  // 1. Normaliza para comparar: remove acentos e espaços extras (incluindo o espaço invisível)
+  const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim().toLowerCase();
+  
+  const nomeNormalizado = norm(gestorNome);
+  
+  // Verifica se está na lista global permitida
+  const estaNaGlobal = CURVA_GLOBAL_GERENTES.some(g => norm(g) === nomeNormalizado);
+  
+  if (!estaNaGlobal) {
+    console.log(`Gestor REJEITADO (não está na lista global): "${gestorNome}"`);
+    return false;
+  }
+  
   if (equipeFiltro === "global") return true;
+  
   const equipeList = equipeFiltro === "publico" ? EQUIPE_PUBLICO : EQUIPE_PRIVADO;
-  return matchNomeInList(gestorNome, equipeList);
+  const estaNaEquipe = equipeList.some(g => norm(g) === nomeNormalizado);
+  
+  if (!estaNaEquipe) {
+    console.log(`Gestor REJEITADO (não está na equipe ${equipeFiltro}): "${gestorNome}"`);
+  }
+  
+  return estaNaEquipe;
 };
 
 export const useCurvaEvolucaoGlobal = (equipeFiltro: EquipeFiltro = "global") =>
@@ -433,9 +452,6 @@ export const useCurvaEvolucaoGlobal = (equipeFiltro: EquipeFiltro = "global") =>
     queryKey: ["gold", "mv_oportunidades_geradas_mes_global_curve", equipeFiltro],
     queryFn: async (): Promise<CurvaGlobalPonto[]> =>
       guard(async () => {
-        // Fetch all rows with `*` (mirrors useOportunidadesGeradasMes that already works
-        // in AnaliseGerentesTab). Using `*` avoids 400 errors when the view does not
-        // expose a specific column name (e.g. qtd_geradas vs qtd_oportunidades).
         const { data, error } = await supabaseGold
           .from("mv_oportunidades_geradas_mes")
           .select("*");
@@ -453,7 +469,10 @@ export const useCurvaEvolucaoGlobal = (equipeFiltro: EquipeFiltro = "global") =>
           const gestorNome = String(
             r.gestor_nome ?? r.gestor ?? r.responsavel ?? r.nome ?? ""
           ).trim();
+          
           if (!gestorNome) continue;
+          
+          // O filtro agora é muito mais resistente a espaços e acentos
           if (!gestorNaEquipe(gestorNome, equipeFiltro)) continue;
 
           const ano = Number(r.ano ?? r.year ?? 0);
@@ -473,6 +492,7 @@ export const useCurvaEvolucaoGlobal = (equipeFiltro: EquipeFiltro = "global") =>
             label: mesLabelCurto(ano, mes),
             qtd_oportunidades: 0,
           };
+          
           cur.qtd_oportunidades += qtd;
           cur[labelKey] = Number(cur[labelKey] ?? 0) + qtd;
           map.set(key, cur);

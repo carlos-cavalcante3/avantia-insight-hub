@@ -42,11 +42,12 @@ export const EQUIPE_PUBLICO = [
 export const EQUIPE_PRIVADO = [
   "Alexandre Soares",
   "André Henrique dos Santos",
-  "Claudiney da costa",
+  "Claudinei da costa",
   "Dayane Lima",
   "Eder cosmo",
   "João Rabitto",
   "Phillipe Maia",
+  "Paulo Mascarenhas",
 ];
 
 /** Gerentes exibidos na Curva de Geração de Oportunidades (Global). */

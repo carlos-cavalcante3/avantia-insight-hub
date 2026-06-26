@@ -1,11 +1,10 @@
-export const normalizeName = (name: string | null | undefined): string =>
-  name
-    ? name
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase()
-        .trim()
-    : "";
+export const normalizeName = (name: string) => {
+  return name
+    .replace(/\u00A0/g, ' ') // Substitui o caractere especial (non-breaking space) por espaço normal
+    .replace(/\s+/g, ' ')    // Garante que espaços duplos virem simples
+    .toLowerCase()
+    .trim();
+}
 
 export const METAS_GERENTES: Record<string, number> = {
   "paulo mascarenhas": 5_000_000,
