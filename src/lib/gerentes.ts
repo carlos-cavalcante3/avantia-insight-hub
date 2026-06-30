@@ -11,6 +11,7 @@ const stripAccents = (s: string): string =>
   String(s ?? "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")   // <- normaliza espaços
     .toLowerCase()
     .trim();
 
@@ -24,7 +25,7 @@ export const GERENTE_KEYS = [
   "eder",
   "philipp",
   "philip",
-  "phillipe",
+  "philipe",
   "maia",
   "rabitto",
   "carlos trindade",
@@ -42,12 +43,11 @@ export const EQUIPE_PUBLICO = [
 export const EQUIPE_PRIVADO = [
   "Alexandre Soares",
   "André Henrique dos Santos",
-  "Claudinei da costa",
+  "Claudinei da Costa",
   "Dayane Lima",
-  "Eder cosmo",
+  "Eder Cosmo",
   "João Rabitto",
-  "Phillipe Maia",
-  "Paulo Mascarenhas",
+  "Philippe Maia",
 ];
 
 /** Gerentes exibidos na Curva de Geração de Oportunidades (Global). */

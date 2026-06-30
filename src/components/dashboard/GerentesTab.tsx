@@ -193,6 +193,11 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
   const curvaGlobal = useCurvaEvolucaoGlobal(equipeFiltro);
   const pipelineAberto = usePipelineAbertoTodosGestores();
   const previsao = usePrevisaoVendasMensal(selectedMonth);
+  const perfMap = useMemo(() => {
+    return new Map(
+      (perf.data ?? []).map((p) => [p.gestor_nome, p])
+    );
+  }, [perf.data]);
   const pipelineMap = useMemo(() => {
     const norm = (s: string) =>
       s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -219,16 +224,26 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
   const passaEquipe = (nome: string) =>
     !equipeList || matchNomeInList(nome, equipeList);
 
-  const dataWL = useMemo(
-    () =>
-      (perf.data ?? [])
-        .filter((g) => isGerenteWhitelisted(g.gestor_nome))
-        .filter((g) => passaEquipe(g.gestor_nome)),
-    [perf.data, equipeFiltro]
-  );
+
+  const dataWL = useMemo(() => {
+    const dados = vendasGestor.data?.ytd ?? [];
+  
+    console.table(
+      dados.map(g => ({
+        gestor: g.gestor_nome,
+        whitelist: isGerenteWhitelisted(g.gestor_nome),
+        privado: matchNomeInList(g.gestor_nome, EQUIPE_PRIVADO),
+        publico: matchNomeInList(g.gestor_nome, EQUIPE_PUBLICO),
+      }))
+    );
+  
+    return dados
+      .filter((g) => isGerenteWhitelisted(g.gestor_nome))
+      .filter((g) => passaEquipe(g.gestor_nome));
+  }, [vendasGestor.data, equipeFiltro]);
 
   const sortedByVolume = useMemo(
-    () => [...dataWL].sort((a, b) => b.valor_total_ganho_ytd - a.valor_total_ganho_ytd),
+    () => [...dataWL].sort((a, b) => b.valor_ytd - a.valor_ytd),
     [dataWL]
   );
 
@@ -249,6 +264,7 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
     [vendasGestor.data, equipeFiltro]
   );
 
+  
 
   /* Movs / visitas — última movimentação por gerente. Não temos
    * "última data" na view atual, então usamos a quantidade como proxy:
@@ -333,7 +349,7 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
           </SelectContent>
         </Select>
       </div>
-
+ 
       {/* Bloco 1 — Volume vendido por gerente */}
 
       <ReportCard
@@ -395,8 +411,9 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
               </BarChart>
             </ResponsiveContainer>
           </div>
-
+          
         )}
+        
       </ReportCard>
 
       {/* Bloco 2 — Curva de Oportunidades GERADAS GLOBAL */}
@@ -535,8 +552,9 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
         ) : (
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {sortedByVolume.map((g) => {
+              const performance = perfMap.get(g.gestor_nome);
               const metaGerente = getMetaGerente(g.gestor_nome);
-              const metaPct = Math.min((g.valor_total_ganho_ytd / metaGerente) * 100, 100);
+              const metaPct = Math.min((g.valor_ytd / metaGerente) * 100, 100);
               return (
               <li
                 key={g.gestor_nome}
@@ -550,8 +568,8 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
                     Taxa Conversão:{" "}
                     <span className="font-semibold text-foreground">
                       {formatPercent(
-                        g.total_oportunidades_ytd > 0
-                          ? (g.negocios_ganhos_ytd / g.total_oportunidades_ytd) * 100
+                        g.qtd_ytd > 0
+                          ? (g.qtd_ytd / g.qtd_ytd) * 100
                           : 0
                       )}
                     </span>
@@ -559,19 +577,19 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
                   <span className="text-muted-foreground">
                     Fechados:{" "}
                     <span className="font-semibold text-foreground">
-                      {formatNumber(g.negocios_ganhos_ytd)}
+                      {formatNumber(g.qtd_ytd)}
                     </span>
                   </span>
                   <span className="text-muted-foreground">
                     Ticket:{" "}
                     <span className="font-semibold text-foreground">
-                      {formatBRL(g.ticket_medio)}
+                      {formatBRL(g.valor_ytd / g.qtd_ytd)}
                     </span>
                   </span>
                   <span className="text-muted-foreground">
                     Prazo:{" "}
                     <span className="font-semibold text-foreground">
-                      {Math.round(g.prazo_medio_dias || g.dias_medios_fechamento || 0)} dias
+                      {Math.round(performance?.prazo_medio_dias || 0)} dias
                     </span>
                   </span>
                   <span className="text-muted-foreground col-span-2">
@@ -650,3 +668,5 @@ export const GerentesTab = ({ periodo }: GerentesTabProps) => {
     </>
   );
 };
+
+
