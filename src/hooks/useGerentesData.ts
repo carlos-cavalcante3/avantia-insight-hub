@@ -67,24 +67,45 @@ const detalheVendaGestorFromRow = (row: Record<string, unknown>): VendaDetalheGe
   valor: Number(row.valor ?? row.valor_ganho ?? row.valor_total ?? row.valor_ytd ?? 0),
 });
 
-export const usePerformanceGestor = (selectedMonth?: number) =>
+export const usePerformanceGestor = (selectedMonth?: number, equipeFiltro: EquipeFiltro = "global") =>
   useQuery({
-    queryKey: ["gold", "performance_gestor", selectedMonthOrUndefined(selectedMonth) ?? "ytd"],
+    queryKey: ["gold", "performance_gestor", selectedMonthOrUndefined(selectedMonth) ?? "ytd", equipeFiltro],
     queryFn: async (): Promise<PerformanceGestor[]> =>
       guard(async () => {
         const { data, error } = await supabaseGold
           .from("mv_performance_gestor")
           .select("*");
         if (error) throw error;
+
         const rows = filterRowsBySelectedMonth(
           (data ?? []) as Record<string, unknown>[],
           selectedMonth
         );
+
+        // Função auxiliar para normalização robusta
+        const norm = (s: string) => 
+          s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim().toLowerCase();
+
         const map = new Map<string, PerformanceGestor>();
+        
         for (const r of rows) {
-          const nome = String(r.gestor_nome ?? "—").trim() || "—";
-          const cur = map.get(nome) ?? {
-            gestor_nome: nome,
+          const nomeBruto = String(r.gestor_nome ?? "—").trim();
+          if (nomeBruto === "—") continue;
+        
+          const nomeNorm = norm(nomeBruto);
+          const estaNaEquipe = equipeFiltro === "global" || 
+            (equipeFiltro === "publico" ? EQUIPE_PUBLICO : EQUIPE_PRIVADO)
+              .some(g => norm(g) === nomeNorm);
+        
+          // LOG DE DEBUG PARA DESCOBRIR O PORQUÊ
+          if (equipeFiltro === "privado" && !estaNaEquipe) {
+            console.log(`DEBUG PRIVADO: Gestor "${nomeBruto}" (Norm: "${nomeNorm}") REJEITADO.`);
+          }
+        
+          if (!estaNaEquipe) continue;
+
+          const cur = map.get(nomeBruto) ?? {
+            gestor_nome: nomeBruto,
             total_oportunidades_ytd: 0,
             valor_propostas_ytd: 0,
             negocios_ganhos_ytd: 0,
@@ -96,15 +117,19 @@ export const usePerformanceGestor = (selectedMonth?: number) =>
             ticket_medio: 0,
             detalhes_vendas_ytd: [],
           };
+
           cur.total_oportunidades_ytd += Number(r.total_oportunidades_ytd ?? 0);
           cur.valor_propostas_ytd += Number(r.valor_propostas_ytd ?? 0);
           cur.negocios_ganhos_ytd += Number(r.negocios_ganhos_ytd ?? 0);
           cur.negocios_perdidos_ytd += Number(r.negocios_perdidos_ytd ?? 0);
           cur.valor_total_ganho_ytd += Number(r.valor_total_ganho_ytd ?? 0);
+          
           const dias = Number(r.dias_medios_fechamento ?? r.prazo_medio_dias ?? 0);
           if (dias > 0) cur.dias_medios_fechamento = dias;
+          
           const prazo = Number(r.prazo_medio_dias ?? dias ?? 0);
           if (prazo > 0) cur.prazo_medio_dias = prazo;
+          
           const detalhes = parseNegociosDetalhados(r.detalhes_vendas_ytd);
           cur.detalhes_vendas_ytd?.push(
             ...(detalhes.length
@@ -113,8 +138,10 @@ export const usePerformanceGestor = (selectedMonth?: number) =>
                 ? [detalheVendaGestorFromRow(r)]
                 : [])
           );
-          map.set(nome, cur);
+          
+          map.set(nomeBruto, cur);
         }
+
         return Array.from(map.values()).map((g) => ({
           ...g,
           win_rate:
